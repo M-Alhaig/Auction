@@ -36,7 +36,6 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     public ItemResponse createItem(CreateItemRequest request) {
-        // TODO: Implement createItem
         // 1. Validate and fetch categories from categoryRepository
         // 2. Convert request to entity using itemMapper.toEntity()
         // 3. Save entity to itemRepository
@@ -50,7 +49,6 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     public ItemResponse updateItem(Long itemId, UpdateItemRequest request, UUID authenticatedUserId) {
-        // TODO: Implement updateItem
         // 1. Find item by ID (throw ItemNotFoundException if not found)
         // 2. Validate ownership (throw UnauthorizedException if sellerId != authenticatedUserId)
         // 3. Validate item status is PENDING (throw IllegalStateException if not)
@@ -70,7 +68,6 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     public void deleteItem(Long itemId, UUID authenticatedUserId) {
-        // TODO: Implement deleteItem
         // 1. Find item by ID (throw ItemNotFoundException if not found)
         // 2. Validate ownership (throw UnauthorizedException if sellerId != authenticatedUserId)
         // 3. Validate item status is PENDING (throw IllegalStateException if not)
@@ -133,7 +130,6 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional(readOnly = true)
     public Page<ItemResponse> getActiveAuctionsEndingSoon(Pageable pageable) {
-        // TODO: Implement getActiveAuctionsEndingSoon
         // 1. Call itemRepository.findByStatusOrderByEndTimeAsc(ItemStatus.ACTIVE, pageable)
         // 2. Map to Page<ItemResponse>
         // 3. Return mapped page
@@ -142,7 +138,7 @@ public class ItemServiceImpl implements ItemService {
 
     // ==================== PRIVATE HELPER METHODS ====================
 
-    // TODO: Add private validation methods
+
     // - validateOwnership(Item item, UUID userId)
     private void validateOwnership(Item item, UUID userId) {
         if (!item.getSellerId().equals(userId)) {
