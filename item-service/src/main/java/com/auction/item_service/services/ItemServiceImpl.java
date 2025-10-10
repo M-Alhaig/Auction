@@ -11,6 +11,7 @@ import com.auction.item_service.models.ItemStatus;
 import com.auction.item_service.repositories.CategoryRepository;
 import com.auction.item_service.repositories.ItemRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ import java.util.UUID;
  * Implementation of ItemService for managing auction items.
  * Handles user-facing CRUD operations and queries.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -36,31 +38,30 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     public ItemResponse createItem(CreateItemRequest request) {
-        // 1. Validate and fetch categories from categoryRepository
-        // 2. Convert request to entity using itemMapper.toEntity()
-        // 3. Save entity to itemRepository
-        // 4. Convert saved entity to ItemResponse using itemMapper.toItemResponse()
-        // 5. Return ItemResponse
+        log.debug("Creating item for seller: {}, title: '{}'", request.sellerId(), request.title());
+
         Set<Category> categories = validateAndFetchCategories(request.categoryIds());
         Item item = itemMapper.toEntity(request, categories);
         item = itemRepository.save(item);
+
+        log.info("Item created - ID: {}, seller: {}, title: '{}', startTime: {}, endTime: {}",
+                item.getId(), item.getSellerId(), item.getTitle(), item.getStartTime(), item.getEndTime());
+
         return itemMapper.toItemResponse(item);
     }
 
     @Override
     public ItemResponse updateItem(Long itemId, UpdateItemRequest request, UUID authenticatedUserId) {
-        // 1. Find item by ID (throw ItemNotFoundException if not found)
-        // 2. Validate ownership (throw UnauthorizedException if sellerId != authenticatedUserId)
-        // 3. Validate item status is PENDING (throw IllegalStateException if not)
-        // 4. Apply partial updates from request (only non-null fields)
-        // 5. If categoryIds provided, validate and fetch categories
-        // 6. Save updated entity
-        // 7. Convert to ItemResponse and return
+        log.debug("Updating item {} by user {}", itemId, authenticatedUserId);
+
         Item item = itemRepository.findById(itemId).orElseThrow(() -> new ItemNotFoundException(itemId));
         validateOwnership(item, authenticatedUserId);
         validateItemIsPending(item);
+
         updateItemFields(request, item);
         item = itemRepository.save(item);
+
+        log.info("Item updated - ID: {}, seller: {}", itemId, authenticatedUserId);
 
         return itemMapper.toItemResponse(item);
     }
@@ -68,14 +69,15 @@ public class ItemServiceImpl implements ItemService {
 
     @Override
     public void deleteItem(Long itemId, UUID authenticatedUserId) {
-        // 1. Find item by ID (throw ItemNotFoundException if not found)
-        // 2. Validate ownership (throw UnauthorizedException if sellerId != authenticatedUserId)
-        // 3. Validate item status is PENDING (throw IllegalStateException if not)
-        // 4. Delete from itemRepository
+        log.debug("Deleting item {} by user {}", itemId, authenticatedUserId);
+
         Item item = itemRepository.findById(itemId).orElseThrow(() -> new ItemNotFoundException(itemId));
         validateOwnership(item, authenticatedUserId);
         validateItemIsPending(item);
+
         itemRepository.delete(item);
+
+        log.info("Item deleted - ID: {}, seller: {}", itemId, authenticatedUserId);
     }
 
     // ==================== QUERY OPERATIONS ====================
@@ -83,9 +85,7 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional(readOnly = true)
     public ItemResponse getItemById(Long itemId) {
-        // 1. Find item by ID (throw ItemNotFoundException if not found)
-        // 2. Convert to ItemResponse using itemMapper
-        // 3. Return ItemResponse
+        log.debug("Fetching item by ID: {}", itemId);
         return itemRepository.findById(itemId)
                 .map(itemMapper::toItemResponse)
                 .orElseThrow(() -> new ItemNotFoundException(itemId));
@@ -94,45 +94,35 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional(readOnly = true)
     public Page<ItemResponse> getAllItems(Pageable pageable) {
-        // 1. Call itemRepository.findAll(pageable)
-        // 2. Map Page<Item> to Page<ItemResponse> using itemMapper
-        // 3. Return mapped page
+        log.debug("Fetching all items - page: {}, size: {}", pageable.getPageNumber(), pageable.getPageSize());
         return itemRepository.findAll(pageable).map(itemMapper::toItemResponse);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<ItemResponse> getItemsByStatus(ItemStatus status, Pageable pageable) {
-        // 1. Call itemRepository.findByStatus(status, pageable)
-        // 2. Map to Page<ItemResponse>
-        // 3. Return mapped page
+        log.debug("Fetching items by status: {}", status);
         return itemRepository.findByStatus(status, pageable).map(itemMapper::toItemResponse);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<ItemResponse> getItemsBySeller(UUID sellerId, Pageable pageable) {
-        // 1. Call itemRepository.findBySellerId(sellerId, pageable)
-        // 2. Map to Page<ItemResponse>
-        // 3. Return mapped page
+        log.debug("Fetching items by seller: {}", sellerId);
         return itemRepository.findBySellerId(sellerId, pageable).map(itemMapper::toItemResponse);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<ItemResponse> getItemsBySellerAndStatus(UUID sellerId, ItemStatus status, Pageable pageable) {
-        // 1. Call itemRepository.findBySellerIdAndStatus(sellerId, status, pageable)
-        // 2. Map to Page<ItemResponse>
-        // 3. Return mapped page
+        log.debug("Fetching items by seller: {} and status: {}", sellerId, status);
         return itemRepository.findBySellerIdAndStatus(sellerId, status, pageable).map(itemMapper::toItemResponse);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<ItemResponse> getActiveAuctionsEndingSoon(Pageable pageable) {
-        // 1. Call itemRepository.findByStatusOrderByEndTimeAsc(ItemStatus.ACTIVE, pageable)
-        // 2. Map to Page<ItemResponse>
-        // 3. Return mapped page
+        log.debug("Fetching active auctions ending soon");
         return itemRepository.findByStatusOrderByEndTimeAsc(ItemStatus.ACTIVE, pageable).map(itemMapper::toItemResponse);
     }
 
@@ -142,6 +132,8 @@ public class ItemServiceImpl implements ItemService {
     // - validateOwnership(Item item, UUID userId)
     private void validateOwnership(Item item, UUID userId) {
         if (!item.getSellerId().equals(userId)) {
+            log.warn("Unauthorized access attempt - itemId: {}, actualSeller: {}, attemptedBy: {}",
+                    item.getId(), item.getSellerId(), userId);
             throw new UnauthorizedException("User does not own this item");
         }
     }
@@ -149,6 +141,8 @@ public class ItemServiceImpl implements ItemService {
     // - validateItemIsPending(Item item)
     private void validateItemIsPending(Item item) {
         if (item.getStatus() != ItemStatus.PENDING) {
+            log.warn("Cannot modify item - itemId: {}, currentStatus: {}, expectedStatus: PENDING",
+                    item.getId(), item.getStatus());
             throw new IllegalStateException("Item is not in PENDING status");
         }
     }
@@ -163,6 +157,8 @@ public class ItemServiceImpl implements ItemService {
 
         // Validate all requested IDs were found
         if (categories.size() != categoryIds.size()) {
+            log.warn("Invalid category IDs - requested: {}, found: {}, categoryIds: {}",
+                    categoryIds.size(), categories.size(), categoryIds);
             throw new IllegalArgumentException(
                     "One or more category IDs are invalid. Requested: " + categoryIds.size() +
                             ", Found: " + categories.size()

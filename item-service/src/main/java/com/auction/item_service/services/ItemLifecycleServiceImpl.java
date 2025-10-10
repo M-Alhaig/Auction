@@ -1,8 +1,11 @@
 package com.auction.item_service.services;
 
+import com.auction.item_service.exceptions.ItemNotFoundException;
 import com.auction.item_service.models.Item;
+import com.auction.item_service.models.ItemStatus;
 import com.auction.item_service.repositories.ItemRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +17,7 @@ import java.util.List;
  * Implementation of ItemLifecycleService for managing auction lifecycle.
  * Handles system-driven operations: status transitions, price updates, events.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -27,48 +31,108 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
 
     @Override
     public void startAuction(Long itemId) {
-        // TODO: Implement startAuction
-        // 1. Find item by ID (throw ItemNotFoundException if not found)
-        // 2. Validate status is PENDING (throw IllegalStateException if not)
-        // 3. Change status to ACTIVE
-        // 4. Save to database
-        // 5. Publish AuctionStartedEvent to RabbitMQ (TODO: requires RabbitMQ config)
-        throw new UnsupportedOperationException("Not implemented yet");
+        log.debug("Starting auction for item: {}", itemId);
+
+        Item item = itemRepository.findById(itemId).orElseThrow(() -> new ItemNotFoundException(itemId));
+
+        if (item.getStatus() != ItemStatus.PENDING) {
+            log.warn("Cannot start auction - itemId: {}, currentStatus: {}, expectedStatus: PENDING",
+                    itemId, item.getStatus());
+            throw new IllegalStateException("Item is not in PENDING status");
+        }
+
+        item.setStatus(ItemStatus.ACTIVE);
+        item = itemRepository.save(item);
+
+        log.info("Auction started - itemId: {}, title: '{}', startTime: {}",
+                itemId, item.getTitle(), item.getStartTime());
+
+        publishAuctionStartedEvent(item);
     }
 
     @Override
     public void endAuction(Long itemId) {
-        // TODO: Implement endAuction
-        // 1. Find item by ID (throw ItemNotFoundException if not found)
-        // 2. Validate status is ACTIVE (throw IllegalStateException if not)
-        // 3. Change status to SOLD
-        // 4. Save to database
-        // 5. Publish AuctionEndedEvent to RabbitMQ (TODO: requires RabbitMQ config)
-        throw new UnsupportedOperationException("Not implemented yet");
+        log.debug("Ending auction for item: {}", itemId);
+
+        Item item = itemRepository.findById(itemId).orElseThrow(() -> new ItemNotFoundException(itemId));
+
+        if (item.getStatus() != ItemStatus.ACTIVE) {
+            log.warn("Cannot end auction - itemId: {}, currentStatus: {}, expectedStatus: ACTIVE",
+                    itemId, item.getStatus());
+            throw new IllegalStateException("Item is not in ACTIVE status");
+        }
+
+        item.setStatus(ItemStatus.ENDED);
+        item = itemRepository.save(item);
+
+        log.info("Auction ended - itemId: {}, title: '{}', finalPrice: {}, endTime: {}",
+                itemId, item.getTitle(), item.getCurrentPrice(), item.getEndTime());
+
+        publishAuctionEndedEvent(item);
     }
 
     // ==================== BATCH OPERATIONS (SCHEDULER) ====================
 
     @Override
     public int batchStartPendingAuctions() {
-        // TODO: Implement batchStartPendingAuctions
-        // 1. Call findPendingItemsToStart() to get all items ready to start
-        // 2. For each item: call startAuction(item.getId())
-        // 3. Count successful starts
-        // 4. Return count
-        // Note: This will be called by @Scheduled method every minute
-        throw new UnsupportedOperationException("Not implemented yet");
+        List<Item> pendingItems = findPendingItemsToStart();
+
+        if (pendingItems.isEmpty()) {
+            log.debug("No pending auctions to start");
+            return 0;
+        }
+
+        log.info("Starting batch auction start - found {} auctions ready to start", pendingItems.size());
+
+        int successCount = 0;
+        int failureCount = 0;
+
+        for (Item item : pendingItems) {
+            try {
+                startAuction(item.getId());
+                successCount++;
+            } catch (Exception e) {
+                failureCount++;
+                log.error("Failed to start auction - itemId: {}, error: {}",
+                        item.getId(), e.getMessage(), e);
+            }
+        }
+
+        log.info("Batch auction start completed - total: {}, succeeded: {}, failed: {}",
+                pendingItems.size(), successCount, failureCount);
+
+        return successCount;
     }
 
     @Override
     public int batchEndExpiredAuctions() {
-        // TODO: Implement batchEndExpiredAuctions
-        // 1. Call findActiveItemsToEnd() to get all items ready to end
-        // 2. For each item: call endAuction(item.getId())
-        // 3. Count successful ends
-        // 4. Return count
-        // Note: This will be called by @Scheduled method every minute
-        throw new UnsupportedOperationException("Not implemented yet");
+        List<Item> activeItems = findActiveItemsToEnd();
+
+        if (activeItems.isEmpty()) {
+            log.debug("No active auctions to end");
+            return 0;
+        }
+
+        log.info("Starting batch auction end - found {} auctions ready to end", activeItems.size());
+
+        int successCount = 0;
+        int failureCount = 0;
+
+        for (Item item : activeItems) {
+            try {
+                endAuction(item.getId());
+                successCount++;
+            } catch (Exception e) {
+                failureCount++;
+                log.error("Failed to end auction - itemId: {}, error: {}",
+                        item.getId(), e.getMessage(), e);
+            }
+        }
+
+        log.info("Batch auction end completed - total: {}, succeeded: {}, failed: {}",
+                activeItems.size(), successCount, failureCount);
+
+        return successCount;
     }
 
     // ==================== PRICE UPDATES (CONCURRENCY CONTROL) ====================
@@ -104,11 +168,8 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
     @Override
     @Transactional(readOnly = true)
     public boolean isItemActive(Long itemId) {
-        // TODO: Implement isItemActive
-        // 1. Call itemRepository.isItemActiveById(itemId)
-        // 2. Return boolean result
-        // Note: This is used by bidding-service to validate bids
-        throw new UnsupportedOperationException("Not implemented yet");
+        log.debug("Checking if item is active: {}", itemId);
+        return itemRepository.isItemActiveById(itemId);
     }
 
     // ==================== INTERNAL QUERY METHODS ====================
@@ -116,19 +177,15 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
     @Override
     @Transactional(readOnly = true)
     public List<Item> findPendingItemsToStart() {
-        // TODO: Implement findPendingItemsToStart
-        // 1. Call itemRepository.findByStatusAndStartTimeLessThanEqual(ItemStatus.PENDING, LocalDateTime.now())
-        // 2. Return list of items
-        throw new UnsupportedOperationException("Not implemented yet");
+        log.debug("Finding pending items ready to start");
+        return itemRepository.findByStatusAndStartTimeLessThanEqual(ItemStatus.PENDING, LocalDateTime.now());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Item> findActiveItemsToEnd() {
-        // TODO: Implement findActiveItemsToEnd
-        // 1. Call itemRepository.findByStatusAndEndTimeBefore(ItemStatus.ACTIVE, LocalDateTime.now())
-        // 2. Return list of items
-        throw new UnsupportedOperationException("Not implemented yet");
+        log.debug("Finding active items ready to end");
+        return itemRepository.findByStatusAndEndTimeBefore(ItemStatus.ACTIVE, LocalDateTime.now());
     }
 
     // ==================== PRIVATE HELPER METHODS ====================
@@ -142,7 +199,8 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
         // Event payload: { itemId, sellerId, title, startTime, startingPrice }
         // Exchange: auction-events
         // Routing key: auction.started
-        System.out.println("TODO: Publish AuctionStartedEvent for item " + item.getId());
+        log.info("TODO: Publish AuctionStartedEvent - itemId: {}, title: '{}'",
+                item.getId(), item.getTitle());
     }
 
     /**
@@ -155,6 +213,7 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
         // Exchange: auction-events
         // Routing key: auction.ended
         // Note: winnerId comes from bidding-service (query or wait for event)
-        System.out.println("TODO: Publish AuctionEndedEvent for item " + item.getId());
+        log.info("TODO: Publish AuctionEndedEvent - itemId: {}, title: '{}', finalPrice: {}",
+                item.getId(), item.getTitle(), item.getCurrentPrice());
     }
 }
