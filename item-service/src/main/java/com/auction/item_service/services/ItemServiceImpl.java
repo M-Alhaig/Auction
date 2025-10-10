@@ -176,8 +176,19 @@ public class ItemServiceImpl implements ItemService {
             item.setDescription(request.description());
         }
         if (request.startingPrice() != null) {
+            BigDecimal oldStartingPrice = item.getStartingPrice();
             item.setStartingPrice(request.startingPrice());
-            item.setCurrentPrice(request.startingPrice());
+
+            // Only update currentPrice if no bids have been placed yet
+            // (currentPrice still equals the old startingPrice)
+            // This prevents accidental erasure of bid data due to race conditions or bugs
+            if (item.getCurrentPrice().compareTo(oldStartingPrice) == 0) {
+                item.setCurrentPrice(request.startingPrice());
+                log.debug("Updated currentPrice to match new startingPrice: {}", request.startingPrice());
+            } else {
+                log.warn("Preserving currentPrice {} despite startingPrice change from {} to {} - bids may exist",
+                        item.getCurrentPrice(), oldStartingPrice, request.startingPrice());
+            }
         }
         if (request.categoryIds() != null) {
             Set<Category> categories = validateAndFetchCategories(request.categoryIds());
