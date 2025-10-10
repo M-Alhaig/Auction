@@ -27,7 +27,7 @@ public record AuctionStartedEvent(
         BigDecimal startingPrice
 ) {
     /**
-     * Factory method to create event with auto-generated metadata.
+     * Factory method to create events with auto-generated metadata.
      *
      * @param itemId the auction item ID
      * @param sellerId the seller's user ID

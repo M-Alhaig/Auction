@@ -1,5 +1,8 @@
 package com.auction.item_service.services;
 
+import com.auction.item_service.events.AuctionEndedEvent;
+import com.auction.item_service.events.AuctionStartedEvent;
+import com.auction.item_service.events.EventPublisher;
 import com.auction.item_service.exceptions.ItemNotFoundException;
 import com.auction.item_service.models.Item;
 import com.auction.item_service.models.ItemStatus;
@@ -24,8 +27,8 @@ import java.util.List;
 public class ItemLifecycleServiceImpl implements ItemLifecycleService {
 
     private final ItemRepository itemRepository;
+    private final EventPublisher eventPublisher;
     // TODO: Inject RedisLockService when Redis is configured
-    // TODO: Inject RabbitTemplate when RabbitMQ is configured
 
     // ==================== STATUS TRANSITIONS ====================
 
@@ -192,28 +195,43 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
 
     /**
      * Publish AuctionStartedEvent to message queue.
-     * TODO: Implement when RabbitMQ is configured.
+     * Consumed by: Bidding Service (enable bidding), Notification Service (notify subscribers).
      */
     private void publishAuctionStartedEvent(Item item) {
-        // TODO: Publish to RabbitMQ exchange
-        // Event payload: { itemId, sellerId, title, startTime, startingPrice }
-        // Exchange: auction-events
-        // Routing key: auction.started
-        log.info("TODO: Publish AuctionStartedEvent - itemId: {}, title: '{}'",
-                item.getId(), item.getTitle());
+        AuctionStartedEvent event = AuctionStartedEvent.of(
+                item.getId(),
+                item.getSellerId(),
+                item.getTitle(),
+                item.getStartTime(),
+                item.getStartingPrice()
+        );
+
+        eventPublisher.publish(event);
+
+        log.debug("Published AuctionStartedEvent - itemId: {}, eventId: {}",
+                item.getId(), event.eventId());
     }
 
     /**
      * Publish AuctionEndedEvent to message queue.
-     * TODO: Implement when RabbitMQ is configured.
+     * Consumed by: Bidding Service (stop accepting bids), Notification Service (notify winner/seller).
+     *
+     * Note: winnerId is currently null since we don't have Bidding Service integrated yet.
+     * Once integrated, we'll query Bidding Service API to get the highest bidder's ID.
      */
     private void publishAuctionEndedEvent(Item item) {
-        // TODO: Publish to RabbitMQ exchange
-        // Event payload: { itemId, sellerId, title, endTime, finalPrice, winnerId }
-        // Exchange: auction-events
-        // Routing key: auction.ended
-        // Note: winnerId comes from bidding-service (query or wait for event)
-        log.info("TODO: Publish AuctionEndedEvent - itemId: {}, title: '{}', finalPrice: {}",
-                item.getId(), item.getTitle(), item.getCurrentPrice());
+        AuctionEndedEvent event = AuctionEndedEvent.of(
+                item.getId(),
+                item.getSellerId(),
+                item.getTitle(),
+                item.getEndTime(),
+                item.getCurrentPrice(),
+                null  // TODO: Query Bidding Service to get winnerId once integrated
+        );
+
+        eventPublisher.publish(event);
+
+        log.debug("Published AuctionEndedEvent - itemId: {}, finalPrice: {}, eventId: {}",
+                item.getId(), item.getCurrentPrice(), event.eventId());
     }
 }
