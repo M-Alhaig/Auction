@@ -83,9 +83,22 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
      * Returns boolean for efficiency (no need to load the entire entity).
      *
      * @param itemId the ID of the item to check
-     * @return true if item exists and status is ACTIVE, false otherwise
+     * @return true if an item exists and status is ACTIVE, false otherwise
      */
     @Query("SELECT CASE WHEN COUNT(i) > 0 THEN true ELSE false END FROM Item i WHERE i.id = :itemId AND i.status = 'ACTIVE'")
     boolean isItemActiveById(@Param("itemId") Long itemId);
+
+    /**
+     * Check if an item exists and is currently PENDING.
+     * Used by item-service to validate bids before updating or deleting.
+     * Returns boolean for efficiency (no need to load the entire entity).
+     *
+     * @param itemId the ID of the item to check
+     * @return true if an item exists and status is PENDING, false otherwise
+     */
+    @Query("SELECT CASE WHEN COUNT(i) > 0 THEN true ELSE false END FROM Item i WHERE i.id = :itemId AND i.status = 'PENDING'")
+    boolean isItemPendingById(@Param("itemId") Long itemId);
+
+
 
 }
