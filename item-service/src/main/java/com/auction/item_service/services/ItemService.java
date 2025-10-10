@@ -77,7 +77,7 @@ public interface ItemService {
      * Get items filtered by status with pagination.
      * Useful for showing "Active Auctions", "Sold Items", etc.
      *
-     * @param status the item status to filter by (PENDING, ACTIVE, EDNED)
+     * @param status the item status to filter by (PENDING, ACTIVE, ENDED)
      * @param pageable pagination and sorting parameters
      * @return page of items with the specified status
      */

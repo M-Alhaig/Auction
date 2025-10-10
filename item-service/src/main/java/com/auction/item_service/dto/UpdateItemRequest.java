@@ -10,7 +10,7 @@ import java.util.Set;
 
 /**
  * DTO for updating an existing auction item.
- * Only PENDING items can be updated (not ACTIVE or EDNED).
+ * Only PENDING items can be updated (not ACTIVE or ENDED).
  * All fields are optional to support partial updates.
  * Item ID comes from URL path, seller ID from JWT token.
  */

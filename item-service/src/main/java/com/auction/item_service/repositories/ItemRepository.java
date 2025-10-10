@@ -25,7 +25,7 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
     Page<Item> findBySellerId(UUID sellerId, Pageable pageable);
 
     /**
-     * Find all items with a specific status (PENDING, ACTIVE, EDNED) with pagination.
+     * Find all items with a specific status (PENDING, ACTIVE, ENDED) with pagination.
      * Used for displaying active auctions to users or filtering items by status.
      *
      * @param status the item status to filter by

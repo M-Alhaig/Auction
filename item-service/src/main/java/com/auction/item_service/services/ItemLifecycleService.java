@@ -26,7 +26,7 @@ public interface ItemLifecycleService {
     void startAuction(Long itemId);
 
     /**
-     * Transition a single item from ACTIVE to EDNED status.
+     * Transition a single item from ACTIVE to Ended status.
      * Called when auction end time is reached.
      * Publishes AuctionEndedEvent to message queue with winner information.
      *
