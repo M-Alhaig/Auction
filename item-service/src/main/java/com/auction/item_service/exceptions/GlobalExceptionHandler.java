@@ -3,6 +3,7 @@ package com.auction.item_service.exceptions;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -132,6 +133,39 @@ public class GlobalExceptionHandler {
                 fieldErrors
         );
 
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    /**
+     * Handle JSON deserialization errors (e.g., compact constructor validation in records).
+     * This catches exceptions thrown during Jackson deserialization, including those from
+     * CreateItemRequest's compact constructor validation.
+     * Returns 400 BAD REQUEST.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleMessageNotReadable(
+            HttpMessageNotReadableException ex,
+            HttpServletRequest request
+    ) {
+        // Extract the root cause message (often contains the actual validation error)
+        String message = "Invalid request body";
+        Throwable cause = ex.getCause();
+
+        // Drill down to find IllegalArgumentException from compact constructor
+        while (cause != null) {
+            if (cause instanceof IllegalArgumentException) {
+                message = cause.getMessage();
+                break;
+            }
+            cause = cause.getCause();
+        }
+
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Bad Request",
+                message,
+                request.getRequestURI()
+        );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
