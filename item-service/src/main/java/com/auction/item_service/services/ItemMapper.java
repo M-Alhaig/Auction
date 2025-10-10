@@ -9,6 +9,7 @@ import com.auction.item_service.models.ItemStatus;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -77,13 +78,14 @@ public class ItemMapper {
      * Sets initial values: status = PENDING, currentPrice = startingPrice.
      * Does NOT save to database - just creates the entity.
      *
-     * @param request the creation request DTO
+     * @param request    the creation request DTO
      * @param categories the resolved category entities (already validated)
+     * @param sellerId   the seller ID from JWT
      * @return the new item entity (not persisted, ID is null)
      */
-    public Item toEntity(CreateItemRequest request, Set<Category> categories) {
+    public Item toEntity(CreateItemRequest request, Set<Category> categories, UUID sellerId) {
         Item item = new Item();
-        item.setSellerId(request.sellerId());
+        item.setSellerId(sellerId);
         item.setTitle(request.title());
         item.setDescription(request.description());
         item.setStartingPrice(request.startingPrice());

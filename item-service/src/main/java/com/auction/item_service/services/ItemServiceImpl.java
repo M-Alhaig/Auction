@@ -37,15 +37,15 @@ public class ItemServiceImpl implements ItemService {
     // ==================== CRUD OPERATIONS ====================
 
     @Override
-    public ItemResponse createItem(CreateItemRequest request) {
-        log.debug("Creating item for seller: {}, title: '{}'", request.sellerId(), request.title());
+    public ItemResponse createItem(CreateItemRequest request, UUID sellerId) {
+        log.debug("Creating item for seller: {}, title: '{}'", sellerId, request.title());
 
         Set<Category> categories = validateAndFetchCategories(request.categoryIds());
-        Item item = itemMapper.toEntity(request, categories);
+        Item item = itemMapper.toEntity(request, categories, sellerId);
         item = itemRepository.save(item);
 
         log.info("Item created - ID: {}, seller: {}, title: '{}', startTime: {}, endTime: {}",
-                item.getId(), item.getSellerId(), item.getTitle(), item.getStartTime(), item.getEndTime());
+                item.getId(), sellerId, item.getTitle(), item.getStartTime(), item.getEndTime());
 
         return itemMapper.toItemResponse(item);
     }

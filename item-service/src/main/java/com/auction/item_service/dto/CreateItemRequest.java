@@ -5,16 +5,15 @@ import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Set;
-import java.util.UUID;
 
 /**
  * DTO for creating a new auction item.
  * Used by sellers to submit new items for auction.
+ *
+ * NOTE: sellerId is NOT included in this DTO - it is extracted from the authenticated
+ * user's JWT token to prevent impersonation attacks. Clients cannot specify sellerId.
  */
 public record CreateItemRequest(
-        @NotNull(message = "Seller ID is required")
-        UUID sellerId,
-
         @NotBlank(message = "Title is required")
         @Size(max = 255, message = "Title must not exceed 255 characters")
         String title,

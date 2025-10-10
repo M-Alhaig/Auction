@@ -25,7 +25,7 @@ public interface ItemService {
      * @return the created item as ItemResponse with generated ID
      * @throws IllegalArgumentException if category IDs are invalid or don't exist
      */
-    ItemResponse createItem(CreateItemRequest request);
+    ItemResponse createItem(CreateItemRequest request, UUID sellerId);
 
     /**
      * Update an existing auction item.
