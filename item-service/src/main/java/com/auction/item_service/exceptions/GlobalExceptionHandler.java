@@ -1,6 +1,7 @@
 package com.auction.item_service.exceptions;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -15,7 +16,9 @@ import java.util.Map;
 /**
  * Global exception handler for all REST controllers.
  * Catches exceptions and converts them to standardized error responses.
+ * Logs all exceptions with appropriate severity levels for monitoring and debugging.
  */
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -28,6 +31,8 @@ public class GlobalExceptionHandler {
             ItemNotFoundException ex,
             HttpServletRequest request
     ) {
+        log.warn("Item not found - path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.NOT_FOUND.value(),
                 "Not Found",
@@ -46,6 +51,8 @@ public class GlobalExceptionHandler {
             UnauthorizedException ex,
             HttpServletRequest request
     ) {
+        log.warn("Unauthorized access attempt - path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.FORBIDDEN.value(),
                 "Forbidden",
@@ -64,6 +71,8 @@ public class GlobalExceptionHandler {
             ConcurrentBidException ex,
             HttpServletRequest request
     ) {
+        log.warn("Concurrent bid conflict - path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.CONFLICT.value(),
                 "Conflict",
@@ -82,6 +91,8 @@ public class GlobalExceptionHandler {
             IllegalStateException ex,
             HttpServletRequest request
     ) {
+        log.warn("Illegal state - path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 "Bad Request",
@@ -100,6 +111,8 @@ public class GlobalExceptionHandler {
             IllegalArgumentException ex,
             HttpServletRequest request
     ) {
+        log.warn("Invalid argument - path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 "Bad Request",
@@ -124,6 +137,8 @@ public class GlobalExceptionHandler {
         for (FieldError error : ex.getBindingResult().getFieldErrors()) {
             fieldErrors.put(error.getField(), error.getDefaultMessage());
         }
+
+        log.warn("Validation failed - path: {}, errors: {}", request.getRequestURI(), fieldErrors);
 
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
@@ -160,6 +175,8 @@ public class GlobalExceptionHandler {
             cause = cause.getCause();
         }
 
+        log.warn("Invalid request body - path: {}, message: {}", request.getRequestURI(), message);
+
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 "Bad Request",
@@ -172,12 +189,19 @@ public class GlobalExceptionHandler {
     /**
      * Handle all other unexpected exceptions.
      * Returns 500 INTERNAL SERVER ERROR.
+     *
+     * CRITICAL: This catches all unexpected errors. Always logs with full stack trace
+     * for debugging. Monitor these logs closely - they indicate bugs or infrastructure issues.
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(
             Exception ex,
             HttpServletRequest request
     ) {
+        // ERROR level with full stack trace - this is a bug or infrastructure failure
+        log.error("Unexpected error - path: {}, exception: {}, message: {}",
+                request.getRequestURI(), ex.getClass().getSimpleName(), ex.getMessage(), ex);
+
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "Internal Server Error",
