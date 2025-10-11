@@ -6,10 +6,12 @@ import com.auction.biddingservice.events.BidPlacedEvent;
 import com.auction.biddingservice.events.EventPublisher;
 import com.auction.biddingservice.events.UserOutbidEvent;
 import com.auction.biddingservice.exceptions.BidLockException;
+import com.auction.biddingservice.exceptions.BidNotFoundException;
 import com.auction.biddingservice.models.Bid;
 import com.auction.biddingservice.repositories.BidRepository;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
@@ -81,7 +83,6 @@ public class BidServiceImpl implements BidService {
   @Override
   @Transactional(readOnly = true)
   public Page<BidResponse> getBidHistory(Long itemId, Pageable pageable) {
-    // TODO(human): Implement getBidHistory
     //
     // Steps:
     // 1. Log query (debug level)
@@ -92,26 +93,33 @@ public class BidServiceImpl implements BidService {
     //    - For each bid: check if bid.getId().equals(highestBidId)
     //    - Call bidMapper.toBidResponse(bid, isCurrentHighest)
     // 6. Return mapped page
-    throw new UnsupportedOperationException("TODO: Implement getBidHistory");
+    log.debug("getBidHistory - itemId: {}", itemId);
+    Page<Bid> bids = bidRepository.findByItemId(itemId, pageable);
+    Long highestBidId = bidRepository.findFirstByItemIdOrderByBidAmountDesc(itemId)
+        .orElseThrow(() -> new BidNotFoundException("No bids found for item " + itemId)).getId();
+
+    return bids.map(
+        bid -> bidMapper.toBidResponse(bid, bid.getId().equals(highestBidId)));
   }
 
   @Override
   @Transactional(readOnly = true)
   public BidResponse getHighestBid(Long itemId) {
-    // TODO(human): Implement getHighestBid
     //
     // Steps:
     // 1. Log query (debug level)
     // 2. Query: findFirstByItemIdOrderByBidAmountDesc(itemId) → Optional<Bid>
     // 3. If present: return bidMapper.toBidResponseAsHighest(bid)
     // 4. Else: return null
-    throw new UnsupportedOperationException("TODO: Implement getHighestBid");
+    log.debug("getHighestBid - itemId: {}", itemId);
+    Bid bid = bidRepository.findFirstByItemIdOrderByBidAmountDesc(itemId)
+        .orElseThrow(() -> new BidNotFoundException("No bids found for item " + itemId));
+    return bidMapper.toBidResponseAsHighest(bid);
   }
 
   @Override
   @Transactional(readOnly = true)
   public Page<BidResponse> getUserBids(UUID bidderId, Pageable pageable) {
-    // TODO(human): Implement getUserBids
     //
     // Steps:
     // 1. Log query (debug level)
@@ -122,13 +130,14 @@ public class BidServiceImpl implements BidService {
     // 4. Return mapped page
     //
     // Note: This is a simple history view, not "current standing" dashboard
-    throw new UnsupportedOperationException("TODO: Implement getUserBids");
+    log.debug("getUserBids - bidderId: {}", bidderId);
+    Page<Bid> bids = bidRepository.findByBidderId(bidderId, pageable);
+    return bids.map(bidMapper::toBidResponseAsHistorical);
   }
 
   @Override
   @Transactional(readOnly = true)
   public Page<BidResponse> getUserBidsForItem(Long itemId, UUID bidderId, Pageable pageable) {
-    // TODO(human): Implement getUserBidsForItem
     //
     // Steps:
     // 1. Log query (debug level)
@@ -139,31 +148,37 @@ public class BidServiceImpl implements BidService {
     //    - For each bid: check if bid.getId().equals(highestBidId)
     //    - Call bidMapper.toBidResponse(bid, isCurrentHighest)
     // 6. Return mapped page
-    throw new UnsupportedOperationException("TODO: Implement getUserBidsForItem");
+    log.debug("getUserBidsForItem - itemId: {}, bidderId: {}", itemId, bidderId);
+    Page<Bid> bids = bidRepository.findByItemIdAndBidderId(itemId, bidderId, pageable);
+    return bids.map(bidMapper::toBidResponseAsHistorical);
   }
 
   @Override
   @Transactional(readOnly = true)
   public long countBids(Long itemId) {
-    // TODO(human): Implement countBids
     //
     // Steps:
     // 1. Log query (debug level)
     // 2. Query: countByItemId(itemId) → long
     // 3. Return count
-    throw new UnsupportedOperationException("TODO: Implement countBids");
+    log.debug("countBids - itemId: {}", itemId);
+    long count = bidRepository.countByItemId(itemId);
+    log.debug("countBids - count: {}", count);
+    return count;
   }
 
   @Override
   @Transactional(readOnly = true)
   public List<Long> getItemsUserHasBidOn(UUID bidderId) {
-    // TODO(human): Implement getItemsUserHasBidOn
     //
     // Steps:
     // 1. Log query (debug level)
     // 2. Query: findDistinctItemIdsByBidderId(bidderId) → List<Long>
     // 3. Return list
-    throw new UnsupportedOperationException("TODO: Implement getItemsUserHasBidOn");
+    log.debug("getItemsUserHasBidOn - bidderId: {}", bidderId);
+    List<Long> itemIds = bidRepository.findDistinctItemIdsByBidderId(bidderId);
+    log.debug("getItemsUserHasBidOn - itemIds: {}", itemIds);
+    return itemIds;
   }
 
   // ==================== REDIS LOCK HELPER ====================
@@ -179,9 +194,9 @@ public class BidServiceImpl implements BidService {
    *   <li>Finally block ensures safe lock release (checks token matches)</li>
    * </ul>
    *
-   * @param itemId the item ID to lock
+   * @param itemId    the item ID to lock
    * @param operation the operation to execute while holding the lock
-   * @param <T> the return type of the operation
+   * @param <T>       the return type of the operation
    * @return the result of the operation
    * @throws BidLockException if lock cannot be acquired
    */
@@ -221,13 +236,19 @@ public class BidServiceImpl implements BidService {
    * </ul>
    */
   private void publishBidPlacedEvent(Bid bid) {
-    // TODO(human): Implement publishBidPlacedEvent
     //
     // Steps:
     // 1. Create event: BidPlacedEvent.create(bid.getItemId(), bid.getBidderId(), bid.getBidAmount(), bid.getTimestamp())
     // 2. Publish: eventPublisher.publish(event)
     // 3. Log (debug level) with bidId, itemId, and eventId
-    throw new UnsupportedOperationException("TODO: Implement publishBidPlacedEvent");
+    BidPlacedEvent event = BidPlacedEvent.create(
+        bid.getItemId(),
+        bid.getBidderId(),
+        bid.getBidAmount(),
+        bid.getTimestamp()
+    );
+
+    eventPublisher.publish(event);
   }
 
   /**
@@ -239,12 +260,21 @@ public class BidServiceImpl implements BidService {
    * </ul>
    */
   private void publishUserOutbidEvent(Bid previousHighestBid, Bid newBid) {
-    // TODO(human): Implement publishUserOutbidEvent
     //
     // Steps:
     // 1. Create event: UserOutbidEvent.create(newBid.getItemId(), previousHighestBid.getBidderId(), newBid.getBidderId(), newBid.getBidAmount())
     // 2. Publish: eventPublisher.publish(event)
     // 3. Log (debug level) with itemId, outbid userId, new bidderId, and eventId
-    throw new UnsupportedOperationException("TODO: Implement publishUserOutbidEvent");
+    UserOutbidEvent event = UserOutbidEvent.create(
+        newBid.getItemId(),
+        previousHighestBid.getBidderId(),
+        newBid.getBidderId(),
+        newBid.getBidAmount()
+    );
+    eventPublisher.publish(event);
+    log.debug(
+        "publishUserOutbidEvent - itemId: {}, outbid userId: {}, new bidderId: {}, eventId: {}",
+        event.data().itemId(),
+        event.data().oldBidderId(), event.data().newBidderId(), event.eventId());
   }
 }
