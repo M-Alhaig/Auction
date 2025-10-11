@@ -25,6 +25,8 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+  public static final String BAD_REQUEST = "Bad Request";
+
   /**
    * Handle InvalidBidException. Returns 400 BAD REQUEST.
    * <p>
@@ -37,7 +39,7 @@ public class GlobalExceptionHandler {
     log.warn("Invalid bid attempt - path: {}, message: {}", request.getRequestURI(),
         ex.getMessage());
 
-    ErrorResponse error = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Bad Request",
+    ErrorResponse error = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), BAD_REQUEST,
         ex.getMessage(), request.getRequestURI());
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
   }
@@ -96,7 +98,7 @@ public class GlobalExceptionHandler {
       HttpServletRequest request) {
     log.warn("Invalid argument - path: {}, message: {}", request.getRequestURI(), ex.getMessage());
 
-    ErrorResponse error = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Bad Request",
+    ErrorResponse error = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), BAD_REQUEST,
         ex.getMessage(), request.getRequestURI());
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
   }
@@ -144,7 +146,7 @@ public class GlobalExceptionHandler {
 
     log.warn("Invalid request body - path: {}, message: {}", request.getRequestURI(), message);
 
-    ErrorResponse error = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Bad Request", message,
+    ErrorResponse error = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), BAD_REQUEST, message,
         request.getRequestURI());
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
   }
