@@ -7,8 +7,10 @@ import com.auction.biddingservice.events.EventPublisher;
 import com.auction.biddingservice.events.UserOutbidEvent;
 import com.auction.biddingservice.exceptions.BidLockException;
 import com.auction.biddingservice.exceptions.BidNotFoundException;
+import com.auction.biddingservice.exceptions.InvalidBidException;
 import com.auction.biddingservice.models.Bid;
 import com.auction.biddingservice.repositories.BidRepository;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
@@ -38,7 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>Sub-millisecond latency vs. database row locks</li>
  *   <li>Works across multiple service instances (distributed)</li>
  *   <li>Automatic expiration prevents deadlocks</li>
- *   <li>No impact on database connection pool</li>
+ *   <li>No impact on a database connection pool</li>
  * </ul>
  *
  * <p>Fallback: {@link Bid} entity has @Version for optimistic locking if Redis is unavailable.
@@ -59,25 +61,48 @@ public class BidServiceImpl implements BidService {
 
   @Override
   public BidResponse placeBid(PlaceBidRequest request, UUID bidderId) {
-    // TODO(human): Implement placeBid
-    //
-    // Steps:
-    // 1. Extract itemId and bidAmount from request
-    // 2. Log attempt (debug level)
-    // 3. Call executeWithLock(itemId, () -> { ... }) to acquire Redis lock
-    // 4. Inside the lambda:
-    //    a. Query current highest bid: findFirstByItemIdOrderByBidAmountDesc(itemId)
-    //    b. Validate: if exists && newBid <= currentHighest → throw InvalidBidException
-    //    c. Create new Bid entity (setItemId, setBidderId, setBidAmount)
-    //    d. Save bid to database
-    //    e. Log success (info level)
-    //    f. Call publishBidPlacedEvent(newBid)
-    //    g. If previous highest bid exists: call publishUserOutbidEvent(oldBid, newBid)
-    //    h. Return bidMapper.toBidResponseAsHighest(newBid)
-    // 5. executeWithLock handles lock acquisition/release automatically
-    //
-    // Note: Item Service validation deferred (add TODO comment about validating auction ACTIVE and sellerId)
-    throw new UnsupportedOperationException("TODO: Implement placeBid");
+    Long itemId = request.itemId();
+    BigDecimal bidAmount = request.bidAmount();
+    log.debug("placeBid - itemId: {}, bidderId: {}, bidAmount: {}", itemId, bidderId, bidAmount);
+
+    return executeWithLock(itemId, () -> {
+      Optional<Bid> highestBidOpt = bidRepository.findFirstByItemIdOrderByBidAmountDesc(
+          itemId);
+
+      // Perform validation against the previous bid or starting price.
+      if (highestBidOpt.isPresent()) {
+        Bid highestBid = highestBidOpt.get();
+        if (bidAmount.compareTo(highestBid.getBidAmount()) <= 0) {
+          throw new InvalidBidException(
+              "Bid amount must be greater than the current highest bid of "
+                  + highestBid.getBidAmount());
+        }
+      } else {
+        // TODO: Validate against the item's starting price by calling Item Service.
+        // This is required for the first bid on an item.
+      }
+
+      // All validation passed, so we can create and save the new bid.
+      Bid newBid = new Bid();
+      newBid.setItemId(itemId);
+      newBid.setBidderId(bidderId);
+      newBid.setBidAmount(bidAmount);
+      newBid = bidRepository.save(newBid);
+
+      log.info("placeBid - success for itemId: {}, bidderId: {}, bidAmount: {}", itemId, bidderId,
+          bidAmount);
+
+      // Publish events
+      publishBidPlacedEvent(newBid);
+      if (highestBidOpt.isPresent()) {
+        Bid highestBid = highestBidOpt.get();
+        if (!highestBid.getBidderId().equals(bidderId)) {
+          publishUserOutbidEvent(highestBid, newBid);
+        }
+      }
+
+      return bidMapper.toBidResponseAsHighest(newBid);
+    });
   }
 
   @Override
@@ -98,8 +123,7 @@ public class BidServiceImpl implements BidService {
     Long highestBidId = bidRepository.findFirstByItemIdOrderByBidAmountDesc(itemId)
         .orElseThrow(() -> new BidNotFoundException("No bids found for item " + itemId)).getId();
 
-    return bids.map(
-        bid -> bidMapper.toBidResponse(bid, bid.getId().equals(highestBidId)));
+    return bids.map(bid -> bidMapper.toBidResponse(bid, bid.getId().equals(highestBidId)));
   }
 
   @Override
@@ -201,27 +225,35 @@ public class BidServiceImpl implements BidService {
    * @throws BidLockException if lock cannot be acquired
    */
   private <T> T executeWithLock(Long itemId, Supplier<T> operation) {
-    // TODO(human): Implement executeWithLock helper
-    //
-    // Steps:
-    // 1. Build lock key: LOCK_KEY_PREFIX + itemId
-    // 2. Generate lock token: UUID.randomUUID().toString()
-    // 3. Acquire lock: redisTemplate.opsForValue().setIfAbsent(lockKey, lockToken, LOCK_TIMEOUT)
-    // 4. If lockAcquired == false:
-    //    - Log warning with itemId
-    //    - throw new BidLockException("Another bid is being processed. Retry shortly.")
-    // 5. Try block:
-    //    - Log lock acquired (debug level) with itemId and lockToken
-    //    - Execute operation.get() and capture result
-    // 6. Finally block:
-    //    - Get current token: redisTemplate.opsForValue().get(lockKey)
-    //    - If currentToken.equals(lockToken):
-    //        - Delete lock: redisTemplate.delete(lockKey)
-    //        - Log lock released (debug level)
-    //    - Else:
-    //        - Log warning about token mismatch (lock expired or stolen)
-    // 7. Return result from operation
-    throw new UnsupportedOperationException("TODO: Implement executeWithLock");
+    String lockKey = LOCK_KEY_PREFIX + itemId;
+    String lockToken = UUID.randomUUID().toString();
+
+    // Atomically try to acquire the lock and check the immediate result.
+    Boolean lockAcquired = redisTemplate.opsForValue()
+        .setIfAbsent(lockKey, lockToken, LOCK_TIMEOUT);
+
+    // If the lock is not acquired (meaning the key already existed), throw an exception.
+    if (!Boolean.TRUE.equals(lockAcquired)) {
+      log.warn("executeWithLock - failed to acquire lock for itemId: {}", itemId);
+      throw new BidLockException("Another bid is being processed. Please retry shortly.");
+    }
+
+    try {
+      log.debug("executeWithLock - lock acquired for itemId: {}", itemId);
+      return operation.get();
+    } finally {
+      // Release the lock using a non-atomic 'check-then-delete'.
+      // This avoids Lua but has a small potential race condition.
+      String currentToken = redisTemplate.opsForValue().get(lockKey);
+      if (lockToken.equals(currentToken)) {
+        redisTemplate.delete(lockKey);
+        log.debug("executeWithLock - lock released for itemId: {}", itemId);
+      } else {
+        log.warn(
+            "executeWithLock - lock expired or was re-acquired by another process. Did not release. itemId: {}",
+            itemId);
+      }
+    }
   }
 
   // ==================== EVENT PUBLISHING HELPERS ====================
@@ -241,12 +273,8 @@ public class BidServiceImpl implements BidService {
     // 1. Create event: BidPlacedEvent.create(bid.getItemId(), bid.getBidderId(), bid.getBidAmount(), bid.getTimestamp())
     // 2. Publish: eventPublisher.publish(event)
     // 3. Log (debug level) with bidId, itemId, and eventId
-    BidPlacedEvent event = BidPlacedEvent.create(
-        bid.getItemId(),
-        bid.getBidderId(),
-        bid.getBidAmount(),
-        bid.getTimestamp()
-    );
+    BidPlacedEvent event = BidPlacedEvent.create(bid.getItemId(), bid.getBidderId(),
+        bid.getBidAmount(), bid.getTimestamp());
 
     eventPublisher.publish(event);
   }
@@ -265,16 +293,12 @@ public class BidServiceImpl implements BidService {
     // 1. Create event: UserOutbidEvent.create(newBid.getItemId(), previousHighestBid.getBidderId(), newBid.getBidderId(), newBid.getBidAmount())
     // 2. Publish: eventPublisher.publish(event)
     // 3. Log (debug level) with itemId, outbid userId, new bidderId, and eventId
-    UserOutbidEvent event = UserOutbidEvent.create(
-        newBid.getItemId(),
-        previousHighestBid.getBidderId(),
-        newBid.getBidderId(),
-        newBid.getBidAmount()
-    );
+    UserOutbidEvent event = UserOutbidEvent.create(newBid.getItemId(),
+        previousHighestBid.getBidderId(), newBid.getBidderId(), newBid.getBidAmount());
     eventPublisher.publish(event);
     log.debug(
         "publishUserOutbidEvent - itemId: {}, outbid userId: {}, new bidderId: {}, eventId: {}",
-        event.data().itemId(),
-        event.data().oldBidderId(), event.data().newBidderId(), event.eventId());
+        event.data().itemId(), event.data().oldBidderId(), event.data().newBidderId(),
+        event.eventId());
   }
 }
