@@ -40,7 +40,7 @@ public class CategoryController {
     List<CategoryResponse> categories = categoryRepository.findAll()
         .stream()
         .map(itemMapper::toCategoryResponse)
-        .collect(Collectors.toList());
+        .toList();
 
     log.debug("GET /api/categories - Found {} categories", categories.size());
     return ResponseEntity.ok(categories);

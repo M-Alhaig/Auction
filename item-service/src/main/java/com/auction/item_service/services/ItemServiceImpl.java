@@ -186,7 +186,7 @@ public class ItemServiceImpl implements ItemService {
       BigDecimal oldStartingPrice = item.getStartingPrice();
       item.setStartingPrice(request.startingPrice());
 
-      // Only update currentPrice if no bids have been placed yet
+      // Only update the currentPrice if no bids have been placed yet
       // (currentPrice still equals the old startingPrice)
       // This prevents accidental erasure of bid data due to race conditions or bugs
       if (item.getCurrentPrice().compareTo(oldStartingPrice) == 0) {

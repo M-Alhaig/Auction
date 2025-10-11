@@ -22,6 +22,8 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+  public static final String BAD_REQUEST = "Bad Request";
+
   /**
    * Handle ItemNotFoundException. Returns 404 NOT FOUND.
    */
@@ -94,7 +96,7 @@ public class GlobalExceptionHandler {
 
     ErrorResponse error = new ErrorResponse(
         HttpStatus.BAD_REQUEST.value(),
-        "Bad Request",
+        BAD_REQUEST,
         ex.getMessage(),
         request.getRequestURI()
     );
@@ -114,7 +116,7 @@ public class GlobalExceptionHandler {
 
     ErrorResponse error = new ErrorResponse(
         HttpStatus.BAD_REQUEST.value(),
-        "Bad Request",
+        BAD_REQUEST,
         ex.getMessage(),
         request.getRequestURI()
     );
@@ -177,7 +179,7 @@ public class GlobalExceptionHandler {
 
     ErrorResponse error = new ErrorResponse(
         HttpStatus.BAD_REQUEST.value(),
-        "Bad Request",
+        BAD_REQUEST,
         message,
         request.getRequestURI()
     );

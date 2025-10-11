@@ -33,8 +33,9 @@ public interface ItemService {
    * @param request             the update request with new values (null fields ignored)
    * @param authenticatedUserId the ID of the authenticated user from JWT
    * @return the updated item as ItemResponse
-   * @throws com.auction.item_service.exceptions.ItemNotFoundException if item doesn't exist
-   * @throws com.auction.item_service.exceptions.UnauthorizedException if user doesn't own the item
+   * @throws com.auction.item_service.exceptions.ItemNotFoundException if the item doesn't exist
+   * @throws com.auction.item_service.exceptions.UnauthorizedException if the user doesn't own the
+   *                                                                   item
    * @throws IllegalStateException                                     if item status is not
    *                                                                   PENDING
    */
@@ -45,8 +46,9 @@ public interface ItemService {
    *
    * @param itemId              the ID of the item to delete
    * @param authenticatedUserId the ID of the authenticated user from JWT
-   * @throws com.auction.item_service.exceptions.ItemNotFoundException if item doesn't exist
-   * @throws com.auction.item_service.exceptions.UnauthorizedException if user doesn't own the item
+   * @throws com.auction.item_service.exceptions.ItemNotFoundException if the item doesn't exist
+   * @throws com.auction.item_service.exceptions.UnauthorizedException if the user doesn't own the
+   *                                                                   item
    * @throws IllegalStateException                                     if item status is not
    *                                                                   PENDING
    */
@@ -59,7 +61,7 @@ public interface ItemService {
    *
    * @param itemId the item ID
    * @return the item as ItemResponse
-   * @throws com.auction.item_service.exceptions.ItemNotFoundException if item doesn't exist
+   * @throws com.auction.item_service.exceptions.ItemNotFoundException if the item doesn't exist
    */
   ItemResponse getItemById(Long itemId);
 
@@ -82,7 +84,7 @@ public interface ItemService {
   Page<ItemResponse> getItemsByStatus(ItemStatus status, Pageable pageable);
 
   /**
-   * Get all items created by a specific seller with pagination. Used for seller dashboard to view
+   * Get all items created by a specific seller with pagination. Used for a seller dashboard to view
    * their listings.
    *
    * @param sellerId the UUID of the seller
