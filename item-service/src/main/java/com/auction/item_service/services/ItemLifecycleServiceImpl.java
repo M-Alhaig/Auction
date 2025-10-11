@@ -7,8 +7,8 @@ import com.auction.item_service.exceptions.ItemNotFoundException;
 import com.auction.item_service.models.Item;
 import com.auction.item_service.models.ItemStatus;
 import com.auction.item_service.repositories.ItemRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,16 +19,36 @@ import java.util.List;
 /**
  * Implementation of ItemLifecycleService for managing auction lifecycle. Handles system-driven
  * operations: status transitions, price updates, events.
+ *
+ * <p>IMPORTANT: Uses self-injection pattern to enable proper transaction proxying.
+ * Batch operations call individual auction operations via the 'self' proxy to ensure
+ * each auction start/end gets its own transaction boundary for proper error isolation.
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 @Transactional
 public class ItemLifecycleServiceImpl implements ItemLifecycleService {
 
   private final ItemRepository itemRepository;
   private final EventPublisher eventPublisher;
+  private final ItemLifecycleService self;
   // TODO: Inject RedisLockService when Redis is configured
+
+  /**
+   * Constructor with self-injection for transaction proxy support.
+   *
+   * @param itemRepository  the repository for item persistence
+   * @param eventPublisher  the publisher for domain events
+   * @param self            self-reference for proxy-aware method calls (breaks circular dependency with @Lazy)
+   */
+  public ItemLifecycleServiceImpl(
+      ItemRepository itemRepository,
+      EventPublisher eventPublisher,
+      @Lazy ItemLifecycleService self) {
+    this.itemRepository = itemRepository;
+    this.eventPublisher = eventPublisher;
+    this.self = self;
+  }
 
   // ==================== STATUS TRANSITIONS ====================
 
@@ -80,7 +100,7 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
 
   @Override
   public int batchStartPendingAuctions() {
-    List<Item> pendingItems = findPendingItemsToStart();
+    List<Item> pendingItems = self.findPendingItemsToStart();
 
     if (pendingItems.isEmpty()) {
       log.debug("No pending auctions to start");
@@ -95,7 +115,8 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
 
     for (Item item : pendingItems) {
       try {
-        startAuction(item.getId());
+        // Call via self-proxy to ensure proper transaction boundary for each auction
+        self.startAuction(item.getId());
         successCount++;
       } catch (Exception e) {
         failureCount++;
@@ -112,7 +133,7 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
 
   @Override
   public int batchEndExpiredAuctions() {
-    List<Item> activeItems = findActiveItemsToEnd();
+    List<Item> activeItems = self.findActiveItemsToEnd();
 
     if (activeItems.isEmpty()) {
       log.debug("No active auctions to end");
@@ -126,7 +147,8 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
 
     for (Item item : activeItems) {
       try {
-        endAuction(item.getId());
+        // Call via self-proxy to ensure proper transaction boundary for each auction
+        self.endAuction(item.getId());
         successCount++;
       } catch (Exception e) {
         failureCount++;

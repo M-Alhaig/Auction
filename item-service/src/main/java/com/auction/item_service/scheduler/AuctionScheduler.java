@@ -13,8 +13,12 @@ import org.springframework.stereotype.Component;
  * Uses ShedLock to ensure only one instance executes each job at a time, preventing race conditions
  * in multi-instance deployments.
  * <p>
- * Schedule intervals: - Auction start: Every 60 seconds (1 minute) - Auction end: Every 60 seconds
- * (1 minute)
+ * Schedule Strategy: Uses fixedDelay instead of fixedRate to prevent task queue buildup.
+ * - fixedDelay: Waits for previous execution to complete, then waits 60 seconds before next run
+ * - This prevents resource exhaustion if batch processing takes longer than the interval
+ * <p>
+ * Schedule intervals: - Auction start: 60 seconds after completion - Auction end: 60 seconds after
+ * completion
  */
 @Slf4j
 @Component
@@ -26,13 +30,13 @@ public class AuctionScheduler {
   /**
    * Scheduled job to start pending auctions whose start time has arrived.
    * <p>
-   * Runs every minute to check for auctions ready to begin. Lock ensures only one instance
+   * Runs 60 seconds after previous execution completes. Lock ensures only one instance
    * processes this batch.
    * <p>
    * Lock configuration: - lockAtMostFor: 50 seconds (prevents deadlock if instance crashes) -
    * lockAtLeastFor: 10 seconds (prevents too-frequent execution)
    */
-  @Scheduled(fixedRate = 60000) // Every 60 seconds
+  @Scheduled(fixedDelay = 60000) // 60 seconds after previous execution completes
   @SchedulerLock(
       name = "startPendingAuctions",
       lockAtMostFor = "50s",
@@ -55,13 +59,13 @@ public class AuctionScheduler {
   /**
    * Scheduled job to end active auctions whose end time has passed.
    * <p>
-   * Runs every minute to check for auctions that should be closed. Lock ensures only one instance
+   * Runs 60 seconds after previous execution completes. Lock ensures only one instance
    * processes this batch.
    * <p>
    * Lock configuration: - lockAtMostFor: 50 seconds (prevents deadlock if instance crashes) -
    * lockAtLeastFor: 10 seconds (prevents too-frequent execution)
    */
-  @Scheduled(fixedRate = 60000) // Every 60 seconds
+  @Scheduled(fixedDelay = 60000) // 60 seconds after previous execution completes
   @SchedulerLock(
       name = "endExpiredAuctions",
       lockAtMostFor = "50s",
