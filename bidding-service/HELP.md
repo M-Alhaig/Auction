@@ -1,7 +1,7 @@
 # Read Me First
 The following was discovered as part of building this project:
 
-* The original package name 'com.auction.bidding-service' is invalid and this project uses 'com.auction.bidding_service' instead.
+* The original package name 'com.auction.bidding-service' is invalid and this project uses 'com.auction.biddingservice' instead.
 
 # Getting Started
 

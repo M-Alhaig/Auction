@@ -1,0 +1,11 @@
+package com.auction.itemservice.dto;
+
+/**
+ * DTO for returning category information to clients. Simple representation with just ID and name.
+ */
+public record CategoryResponse(
+    Integer id,
+    String name
+) {
+
+}
