@@ -43,25 +43,35 @@ public interface BidRepository extends JpaRepository<Bid, Long> {
    * @param bidderId the user's UUID
    * @return list of bids (may be empty, could be large for active bidders)
    */
-  List<Bid> findByBidderId(UUID bidderId);
+  Page<Bid> findByBidderId(UUID bidderId, Pageable pageable);
 
   /**
-   * Finds all bids for an auction item with pagination, ordered by timestamp descending.
+   * Finds all bids for an auction item with pagination.
+   *
+   * <p>Sorting is controlled by the caller via {@code Pageable.sort()}. Common sorts:
+   * <ul>
+   *   <li>{@code Sort.by("timestamp").descending()} - chronological (newest first)</li>
+   *   <li>{@code Sort.by("bidAmount").descending()} - highest to lowest</li>
+   * </ul>
    *
    * @param itemId   the item ID to query
    * @param pageable pagination parameters (page number, size, sort)
-   * @return page of bids in chronological order (newest first)
+   * @return page of bids with flexible sorting
    */
-  Page<Bid> findByItemIdOrderByTimestampDesc(Long itemId, Pageable pageable);
+  Page<Bid> findByItemId(Long itemId, Pageable pageable);
 
   /**
-   * Finds all bids placed by a specific user on a specific item, ordered by timestamp descending.
+   * Finds all bids placed by a specific user on a specific item with pagination.
+   *
+   * <p>Sorting is controlled by the caller via {@code Pageable.sort()}. Typical usage:
+   * {@code Sort.by("timestamp").descending()} for chronological history.
    *
    * @param itemId   the item ID to query
    * @param bidderId the user's UUID
-   * @return list of bids (typically small, most users bid 1-3 times per item)
+   * @param pageable pagination parameters (page number, size, sort)
+   * @return page of bids (typically small, most users bid 1-3 times per item)
    */
-  List<Bid> findByItemIdAndBidderIdOrderByTimestampDesc(Long itemId, UUID bidderId);
+  Page<Bid> findByItemIdAndBidderId(Long itemId, UUID bidderId, Pageable pageable);
 
   /**
    * Counts the total number of bids for a specific auction item.

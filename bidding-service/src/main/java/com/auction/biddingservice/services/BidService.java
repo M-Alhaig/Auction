@@ -69,21 +69,28 @@ public interface BidService {
   BidResponse getHighestBid(Long itemId);
 
   /**
-   * Retrieves all bids placed by a specific user, ordered by timestamp descending.
+   * Retrieves paginated bid history for a specific user.
+   *
+   * <p>Returns simple chronological history without expensive {@code isCurrentHighest} checks.
+   * All bids are marked as historical ({@code isCurrentHighest=false}) for performance.
    *
    * @param bidderId the user's UUID
-   * @return list of bids (may be large, consider pagination in future)
+   * @param pageable pagination parameters (page, size, sort)
+   * @return page of user's bids with flexible sorting
    */
-  List<BidResponse> getUserBids(UUID bidderId);
+  Page<BidResponse> getUserBids(UUID bidderId, Pageable pageable);
 
   /**
-   * Retrieves all bids placed by a specific user on a specific item.
+   * Retrieves paginated bids placed by a specific user on a specific item.
+   *
+   * <p>Sets {@code isCurrentHighest} flag accurately for this specific item.
    *
    * @param itemId   the item ID to query
    * @param bidderId the user's UUID
-   * @return list of bids (typically 1-3 bids per user per item)
+   * @param pageable pagination parameters (page, size, sort)
+   * @return page of bids (typically small, most users bid 1-3 times per item)
    */
-  List<BidResponse> getUserBidsForItem(Long itemId, UUID bidderId);
+  Page<BidResponse> getUserBidsForItem(Long itemId, UUID bidderId, Pageable pageable);
 
   /**
    * Counts the total number of bids for an auction item.
