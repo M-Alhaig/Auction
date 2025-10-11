@@ -12,29 +12,29 @@ import javax.sql.DataSource;
 
 /**
  * Configuration for Spring Scheduling and ShedLock distributed coordination.
- *
- * ShedLock ensures that scheduled tasks run on only one instance at a time
- * in a multi-instance deployment, preventing duplicate execution.
+ * <p>
+ * ShedLock ensures that scheduled tasks run on only one instance at a time in a multi-instance
+ * deployment, preventing duplicate execution.
  */
 @Configuration
 @EnableScheduling
 @EnableSchedulerLock(defaultLockAtMostFor = "50s")
 public class SchedulerConfig {
 
-    /**
-     * Creates a JDBC-based lock provider for ShedLock.
-     *
-     * Uses the 'shedlock' table in PostgreSQL to coordinate locks across instances.
-     *
-     * @param dataSource the configured DataSource
-     * @return LockProvider for distributed locking
-     */
-    @Bean
-    public LockProvider lockProvider(DataSource dataSource) {
-        return new JdbcTemplateLockProvider(JdbcTemplateLockProvider.Configuration.builder()
-                .withJdbcTemplate(new JdbcTemplate(dataSource))
-                .usingDbTime() // Use database time for consistency across instances
-                .build()
-        );
-    }
+  /**
+   * Creates a JDBC-based lock provider for ShedLock.
+   * <p>
+   * Uses the 'shedlock' table in PostgreSQL to coordinate locks across instances.
+   *
+   * @param dataSource the configured DataSource
+   * @return LockProvider for distributed locking
+   */
+  @Bean
+  public LockProvider lockProvider(DataSource dataSource) {
+    return new JdbcTemplateLockProvider(JdbcTemplateLockProvider.Configuration.builder()
+        .withJdbcTemplate(new JdbcTemplate(dataSource))
+        .usingDbTime() // Use database time for consistency across instances
+        .build()
+    );
+  }
 }

@@ -13,11 +13,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * REST controller for managing auction item categories.
- * Categories are used to classify items and enable filtering.
- *
- * Note: This is a simple read-only controller for now.
- * In production, you might want admin-only endpoints for creating/updating categories.
+ * REST controller for managing auction item categories. Categories are used to classify items and
+ * enable filtering.
+ * <p>
+ * Note: This is a simple read-only controller for now. In production, you might want admin-only
+ * endpoints for creating/updating categories.
  */
 @Slf4j
 @RestController
@@ -25,41 +25,40 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CategoryController {
 
-    private final CategoryRepository categoryRepository;
-    private final ItemMapper itemMapper;
+  private final CategoryRepository categoryRepository;
+  private final ItemMapper itemMapper;
 
-    /**
-     * Get all categories.
-     * Used by frontend to populate category selection dropdowns.
-     *
-     * @return list of all categories
-     */
-    @GetMapping
-    public ResponseEntity<List<CategoryResponse>> getAllCategories() {
-        log.debug("GET /api/categories - Fetching all categories");
+  /**
+   * Get all categories. Used by frontend to populate category selection dropdowns.
+   *
+   * @return list of all categories
+   */
+  @GetMapping
+  public ResponseEntity<List<CategoryResponse>> getAllCategories() {
+    log.debug("GET /api/categories - Fetching all categories");
 
-        List<CategoryResponse> categories = categoryRepository.findAll()
-                .stream()
-                .map(itemMapper::toCategoryResponse)
-                .collect(Collectors.toList());
+    List<CategoryResponse> categories = categoryRepository.findAll()
+        .stream()
+        .map(itemMapper::toCategoryResponse)
+        .collect(Collectors.toList());
 
-        log.debug("GET /api/categories - Found {} categories", categories.size());
-        return ResponseEntity.ok(categories);
-    }
+    log.debug("GET /api/categories - Found {} categories", categories.size());
+    return ResponseEntity.ok(categories);
+  }
 
-    /**
-     * Get a single category by ID.
-     *
-     * @param id the category ID
-     * @return the category
-     */
-    @GetMapping("/{id}")
-    public ResponseEntity<CategoryResponse> getCategoryById(@PathVariable Integer id) {
-        log.debug("GET /api/categories/{}", id);
+  /**
+   * Get a single category by ID.
+   *
+   * @param id the category ID
+   * @return the category
+   */
+  @GetMapping("/{id}")
+  public ResponseEntity<CategoryResponse> getCategoryById(@PathVariable Integer id) {
+    log.debug("GET /api/categories/{}", id);
 
-        return categoryRepository.findById(id)
-                .map(itemMapper::toCategoryResponse)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
+    return categoryRepository.findById(id)
+        .map(itemMapper::toCategoryResponse)
+        .map(ResponseEntity::ok)
+        .orElse(ResponseEntity.notFound().build());
+  }
 }

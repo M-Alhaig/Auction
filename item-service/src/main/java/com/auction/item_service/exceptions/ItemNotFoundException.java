@@ -5,11 +5,11 @@ package com.auction.item_service.exceptions;
  */
 public class ItemNotFoundException extends RuntimeException {
 
-    public ItemNotFoundException(String message) {
-        super(message);
-    }
+  public ItemNotFoundException(String message) {
+    super(message);
+  }
 
-    public ItemNotFoundException(Long itemId) {
-        super("Item not found with ID: " + itemId);
-    }
+  public ItemNotFoundException(Long itemId) {
+    super("Item not found with ID: " + itemId);
+  }
 }
