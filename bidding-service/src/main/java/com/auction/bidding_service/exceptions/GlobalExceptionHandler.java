@@ -32,19 +32,13 @@ public class GlobalExceptionHandler {
    * on own auction
    */
   @ExceptionHandler(InvalidBidException.class)
-  public ResponseEntity<ErrorResponse> handleInvalidBid(
-      InvalidBidException ex,
-      HttpServletRequest request
-  ) {
+  public ResponseEntity<ErrorResponse> handleInvalidBid(InvalidBidException ex,
+      HttpServletRequest request) {
     log.warn("Invalid bid attempt - path: {}, message: {}", request.getRequestURI(),
         ex.getMessage());
 
-    ErrorResponse error = new ErrorResponse(
-        HttpStatus.BAD_REQUEST.value(),
-        "Bad Request",
-        ex.getMessage(),
-        request.getRequestURI()
-    );
+    ErrorResponse error = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Bad Request",
+        ex.getMessage(), request.getRequestURI());
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
   }
 
@@ -55,18 +49,12 @@ public class GlobalExceptionHandler {
    * delay.
    */
   @ExceptionHandler(BidLockException.class)
-  public ResponseEntity<ErrorResponse> handleBidLock(
-      BidLockException ex,
-      HttpServletRequest request
-  ) {
+  public ResponseEntity<ErrorResponse> handleBidLock(BidLockException ex,
+      HttpServletRequest request) {
     log.warn("Bid lock conflict - path: {}, message: {}", request.getRequestURI(), ex.getMessage());
 
-    ErrorResponse error = new ErrorResponse(
-        HttpStatus.CONFLICT.value(),
-        "Conflict",
-        ex.getMessage(),
-        request.getRequestURI()
-    );
+    ErrorResponse error = new ErrorResponse(HttpStatus.CONFLICT.value(), "Conflict",
+        ex.getMessage(), request.getRequestURI());
     return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
   }
 
@@ -76,18 +64,12 @@ public class GlobalExceptionHandler {
    * Item doesn't exist in Item Service or was deleted.
    */
   @ExceptionHandler(AuctionNotFoundException.class)
-  public ResponseEntity<ErrorResponse> handleAuctionNotFound(
-      AuctionNotFoundException ex,
-      HttpServletRequest request
-  ) {
+  public ResponseEntity<ErrorResponse> handleAuctionNotFound(AuctionNotFoundException ex,
+      HttpServletRequest request) {
     log.warn("Auction not found - path: {}, message: {}", request.getRequestURI(), ex.getMessage());
 
-    ErrorResponse error = new ErrorResponse(
-        HttpStatus.NOT_FOUND.value(),
-        "Not Found",
-        ex.getMessage(),
-        request.getRequestURI()
-    );
+    ErrorResponse error = new ErrorResponse(HttpStatus.NOT_FOUND.value(), "Not Found",
+        ex.getMessage(), request.getRequestURI());
     return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
   }
 
@@ -97,18 +79,12 @@ public class GlobalExceptionHandler {
    * Specific bid ID doesn't exist in database.
    */
   @ExceptionHandler(BidNotFoundException.class)
-  public ResponseEntity<ErrorResponse> handleBidNotFound(
-      BidNotFoundException ex,
-      HttpServletRequest request
-  ) {
+  public ResponseEntity<ErrorResponse> handleBidNotFound(BidNotFoundException ex,
+      HttpServletRequest request) {
     log.warn("Bid not found - path: {}, message: {}", request.getRequestURI(), ex.getMessage());
 
-    ErrorResponse error = new ErrorResponse(
-        HttpStatus.NOT_FOUND.value(),
-        "Not Found",
-        ex.getMessage(),
-        request.getRequestURI()
-    );
+    ErrorResponse error = new ErrorResponse(HttpStatus.NOT_FOUND.value(), "Not Found",
+        ex.getMessage(), request.getRequestURI());
     return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
   }
 
@@ -116,18 +92,12 @@ public class GlobalExceptionHandler {
    * Handle IllegalArgumentException (generic business rule violations). Returns 400 BAD REQUEST.
    */
   @ExceptionHandler(IllegalArgumentException.class)
-  public ResponseEntity<ErrorResponse> handleIllegalArgument(
-      IllegalArgumentException ex,
-      HttpServletRequest request
-  ) {
+  public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex,
+      HttpServletRequest request) {
     log.warn("Invalid argument - path: {}, message: {}", request.getRequestURI(), ex.getMessage());
 
-    ErrorResponse error = new ErrorResponse(
-        HttpStatus.BAD_REQUEST.value(),
-        "Bad Request",
-        ex.getMessage(),
-        request.getRequestURI()
-    );
+    ErrorResponse error = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Bad Request",
+        ex.getMessage(), request.getRequestURI());
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
   }
 
@@ -136,10 +106,8 @@ public class GlobalExceptionHandler {
    * error details.
    */
   @ExceptionHandler(MethodArgumentNotValidException.class)
-  public ResponseEntity<ErrorResponse> handleValidationErrors(
-      MethodArgumentNotValidException ex,
-      HttpServletRequest request
-  ) {
+  public ResponseEntity<ErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex,
+      HttpServletRequest request) {
     Map<String, String> fieldErrors = new HashMap<>();
 
     // Extract field-level errors
@@ -149,13 +117,9 @@ public class GlobalExceptionHandler {
 
     log.warn("Validation failed - path: {}, errors: {}", request.getRequestURI(), fieldErrors);
 
-    ErrorResponse error = new ErrorResponse(
-        HttpStatus.BAD_REQUEST.value(),
-        "Validation Failed",
-        "Input validation failed. Check fieldErrors for details.",
-        request.getRequestURI(),
-        fieldErrors
-    );
+    ErrorResponse error = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Validation Failed",
+        "Input validation failed. Check fieldErrors for details.", request.getRequestURI(),
+        fieldErrors);
 
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
   }
@@ -164,10 +128,8 @@ public class GlobalExceptionHandler {
    * Handle JSON deserialization errors. Returns 400 BAD REQUEST.
    */
   @ExceptionHandler(HttpMessageNotReadableException.class)
-  public ResponseEntity<ErrorResponse> handleMessageNotReadable(
-      HttpMessageNotReadableException ex,
-      HttpServletRequest request
-  ) {
+  public ResponseEntity<ErrorResponse> handleMessageNotReadable(HttpMessageNotReadableException ex,
+      HttpServletRequest request) {
     // Extract the root cause message
     String message = "Invalid request body";
     Throwable cause = ex.getCause();
@@ -182,12 +144,8 @@ public class GlobalExceptionHandler {
 
     log.warn("Invalid request body - path: {}, message: {}", request.getRequestURI(), message);
 
-    ErrorResponse error = new ErrorResponse(
-        HttpStatus.BAD_REQUEST.value(),
-        "Bad Request",
-        message,
-        request.getRequestURI()
-    );
+    ErrorResponse error = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Bad Request", message,
+        request.getRequestURI());
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
   }
 
@@ -198,20 +156,14 @@ public class GlobalExceptionHandler {
    * Monitor these logs closely - they indicate bugs or infrastructure issues.
    */
   @ExceptionHandler(Exception.class)
-  public ResponseEntity<ErrorResponse> handleGeneralException(
-      Exception ex,
-      HttpServletRequest request
-  ) {
+  public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex,
+      HttpServletRequest request) {
     // ERROR level with full stack trace - this is a bug or infrastructure failure
-    log.error("Unexpected error - path: {}, exception: {}, message: {}",
-        request.getRequestURI(), ex.getClass().getSimpleName(), ex.getMessage(), ex);
+    log.error("Unexpected error - path: {}, exception: {}, message: {}", request.getRequestURI(),
+        ex.getClass().getSimpleName(), ex.getMessage(), ex);
 
-    ErrorResponse error = new ErrorResponse(
-        HttpStatus.INTERNAL_SERVER_ERROR.value(),
-        "Internal Server Error",
-        "An unexpected error occurred",
-        request.getRequestURI()
-    );
+    ErrorResponse error = new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+        "Internal Server Error", "An unexpected error occurred", request.getRequestURI());
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
   }
 }

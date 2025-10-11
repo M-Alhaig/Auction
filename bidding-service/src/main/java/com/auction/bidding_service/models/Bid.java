@@ -1,39 +1,45 @@
 package com.auction.bidding_service.models;
 
-import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.proxy.HibernateProxy;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.proxy.HibernateProxy;
 
 /**
  * Entity representing a bid placed on an auction item.
- * <p>
- * Design Notes: - Uses @Version for optimistic locking as a database-level fallback to Redis
+ *
+ * <p>Design Notes: - Uses @Version for optimistic locking as a database-level fallback to Redis
  * distributed locks - Timestamp is auto-generated on creation and cannot be modified - Bidder
  * cannot change their bid amount after submission (immutable bids) - itemId references Item
  * Service's items table (cross-service foreign key by convention only)
- * <p>
- * Concurrency Control: - Primary: Redis distributed lock on "lock:item:{itemId}" before bid
+ *
+ * <p>Concurrency Control: - Primary: Redis distributed lock on "lock:item:{itemId}" before bid
  * insertion - Fallback: @Version field prevents lost updates if Redis lock fails
- * <p>
- * Indexes: - idx_item_bid: Optimized for finding highest bid per item (ORDER BY bid_amount DESC) -
- * idx_bidder: Fast lookup of all bids by a specific user - idx_timestamp: Chronological bid history
- * queries
+ *
+ * <p>Indexes: - idx_item_bid: Optimized for finding highest bid per item (ORDER BY bid_amount
+ * DESC) - idx_bidder: Fast lookup of all bids by a specific user - idx_timestamp: Chronological bid
+ * history queries
  */
 @Entity
-@Table(
-    name = "bids",
-    indexes = {
-        @Index(name = "idx_item_bid", columnList = "item_id, bid_amount DESC"),
-        @Index(name = "idx_bidder", columnList = "bidder_id"),
-        @Index(name = "idx_timestamp", columnList = "timestamp DESC")
-    }
-)
+@Table(name = "bids", indexes = {
+    @Index(name = "idx_item_bid", columnList = "item_id, bid_amount DESC"),
+    @Index(name = "idx_bidder", columnList = "bidder_id"),
+    @Index(name = "idx_timestamp", columnList = "timestamp DESC")})
 @Getter
 @Setter
 @ToString
@@ -81,8 +87,8 @@ public class Bid {
 
   /**
    * Hibernate-safe equals method. Compares by ID only, handles lazy-loading proxies correctly.
-   * <p>
-   * IMPORTANT: This implementation is required when using Lombok with Hibernate to avoid issues
+   *
+   * <p>IMPORTANT: This implementation is required when using Lombok with Hibernate to avoid issues
    * with proxy objects and lazy loading.
    */
   @Override
@@ -93,12 +99,12 @@ public class Bid {
     if (o == null) {
       return false;
     }
-    Class<?> oEffectiveClass = o instanceof HibernateProxy
-        ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass()
-        : o.getClass();
-    Class<?> thisEffectiveClass = this instanceof HibernateProxy
-        ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass()
-        : this.getClass();
+    Class<?> oEffectiveClass =
+        o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer()
+            .getPersistentClass() : o.getClass();
+    Class<?> thisEffectiveClass =
+        this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer()
+            .getPersistentClass() : this.getClass();
     if (thisEffectiveClass != oEffectiveClass) {
       return false;
     }
@@ -112,8 +118,7 @@ public class Bid {
    */
   @Override
   public final int hashCode() {
-    return this instanceof HibernateProxy
-        ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode()
-        : getClass().hashCode();
+    return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer()
+        .getPersistentClass().hashCode() : getClass().hashCode();
   }
 }

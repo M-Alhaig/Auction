@@ -6,11 +6,13 @@ import org.springframework.stereotype.Component;
 
 /**
  * Mapper component for converting between Bid entities and DTOs.
- * <p>
- * Responsibilities: - Entity → DTO (for API responses) - Determines if a bid is the current highest
+ *
+ * <p>Responsibilities: - Entity → DTO (for API responses) - Determines if a bid is the current
+ * highest
  * (requires context from service layer)
- * <p>
- * Note: No DTO → Entity mapping needed. Bids are created directly in service layer to ensure proper
+ *
+ * <p>Note: No DTO → Entity mapping needed. Bids are created directly in service layer to ensure
+ * proper
  * validation and Redis locking before persistence.
  */
 @Component
