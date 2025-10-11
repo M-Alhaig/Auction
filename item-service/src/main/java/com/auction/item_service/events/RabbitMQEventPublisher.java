@@ -14,16 +14,16 @@ import org.springframework.stereotype.Component;
  *
  * RabbitMQ implementation of EventPublisher. Uses Spring AMQP RabbitTemplate to publish events to a
  * topic exchange.
- * <p>
- * Exchange Strategy: - Single topic exchange: "auction-events" - Routing key pattern:
+ *
+ * <p>Exchange Strategy: - Single topic exchange: "auction-events" - Routing key pattern:
  * "item.{event-type}" (e.g., "item.auction-started") - Consumers bind queues with wildcard routing
  * keys (e.g., "item.*", "item.auction-started")
- * <p>
- * Migration Path to SQS: 1. Create SQSEventPublisher implementing EventPublisher 2. Remove @Primary
+ *
+ * <p>Migration Path to SQS: 1. Create SQSEventPublisher implementing EventPublisher 2. Remove @Primary
  * annotation from this class 3. Add @Primary to SQSEventPublisher 4. No changes needed in
  * ItemLifecycleServiceImpl
- * <p>
- * Thread Safety: RabbitTemplate is thread-safe, this class is safe for concurrent use.
+ *
+ * <p>Thread Safety: RabbitTemplate is thread-safe, this class is safe for concurrent use.
  */
 @Slf4j
 @Primary
