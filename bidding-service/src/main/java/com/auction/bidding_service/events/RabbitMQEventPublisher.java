@@ -1,9 +1,6 @@
 package com.auction.bidding_service.events;
 
 import com.auction.bidding_service.exceptions.EventPublishException;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -14,16 +11,25 @@ import org.springframework.stereotype.Component;
  * RabbitMQ implementation of EventPublisher. Uses Spring AMQP RabbitTemplate to publish events to a
  * topic exchange.
  * <p>
- * Exchange Strategy: - Single topic exchange: "auction-events" (shared with all services) - Routing
- * key pattern: "bidding.{event-type}" (e.g., "bidding.bid-placed") - Consumers bind queues with
- * wildcard routing keys (e.g., "bidding.*", "bidding.bid-placed")
+ * Exchange Strategy:
+ * - Single topic exchange: "auction-events" (shared with all services)
+ * - Routing key pattern: "bidding.{event-type}" (e.g., "bidding.bid-placed")
+ * - Consumers bind queues with wildcard routing keys (e.g., "bidding.*", "bidding.bid-placed")
  * <p>
- * Routing Key Examples: - BidPlacedEvent → "bidding.bid-placed" - UserOutbidEvent →
- * "bidding.user-outbid"
+ * Routing Key Examples:
+ * - BidPlacedEvent → "bidding.bid-placed"
+ * - UserOutbidEvent → "bidding.user-outbid"
  * <p>
- * Migration Path to SQS: 1. Create SQSEventPublisher implementing EventPublisher 2. Remove @Primary
- * annotation from this class 3. Add @Primary to SQSEventPublisher 4. No changes needed in
- * BidServiceImpl
+ * Serialization:
+ * - RabbitTemplate is configured with Jackson2JsonMessageConverter in RabbitMQConfig
+ * - Event objects are automatically serialized to JSON
+ * - LocalDateTime fields are handled by JavaTimeModule registered in the converter
+ * <p>
+ * Migration Path to SQS:
+ * 1. Create SQSEventPublisher implementing EventPublisher
+ * 2. Remove @Primary annotation from this class
+ * 3. Add @Primary to SQSEventPublisher
+ * 4. No changes needed in BidServiceImpl
  * <p>
  * Thread Safety: RabbitTemplate is thread-safe, this class is safe for concurrent use.
  */
@@ -34,7 +40,6 @@ import org.springframework.stereotype.Component;
 public class RabbitMQEventPublisher implements EventPublisher {
 
   private final RabbitTemplate rabbitTemplate;
-  private final ObjectMapper objectMapper = createObjectMapper();
 
   private static final String EXCHANGE_NAME = "auction-events";
   private static final String ROUTING_KEY_PREFIX = "bidding.";
@@ -48,33 +53,21 @@ public class RabbitMQEventPublisher implements EventPublisher {
   @Override
   public <T> void publish(T event, String routingKey) {
     try {
-      String eventJson = objectMapper.writeValueAsString(event);
-
       log.debug("Publishing event - exchange: {}, routingKey: {}, event: {}", EXCHANGE_NAME,
           routingKey, event.getClass().getSimpleName());
 
-      rabbitTemplate.convertAndSend(EXCHANGE_NAME, routingKey, eventJson);
+      // Pass event object directly - Jackson2JsonMessageConverter handles serialization
+      rabbitTemplate.convertAndSend(EXCHANGE_NAME, routingKey, event);
 
       log.info("Event published successfully - type: {}, routingKey: {}",
           event.getClass().getSimpleName(), routingKey);
 
-    } catch (JsonProcessingException e) {
-      log.error("Failed to serialize event - type: {}, error: {}", event.getClass().getSimpleName(),
-          e.getMessage(), e);
-      throw new EventPublishException(
-          "Event serialization failed: " + event.getClass().getSimpleName(), e);
     } catch (Exception e) {
       log.error("Failed to publish event - type: {}, routingKey: {}, error: {}",
           event.getClass().getSimpleName(), routingKey, e.getMessage(), e);
       throw new EventPublishException(
           "Event publishing failed: " + event.getClass().getSimpleName(), e);
     }
-  }
-
-  private ObjectMapper createObjectMapper() {
-    ObjectMapper mapper = new ObjectMapper();
-    mapper.registerModule(new JavaTimeModule());
-    return mapper;
   }
 
   private String buildRoutingKey(String eventClassName) {
