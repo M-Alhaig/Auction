@@ -203,7 +203,7 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
    * Notification Service (notify subscribers).
    */
   private void publishAuctionStartedEvent(Item item) {
-    AuctionStartedEvent event = AuctionStartedEvent.of(
+    AuctionStartedEvent event = AuctionStartedEvent.create(
         item.getId(),
         item.getSellerId(),
         item.getTitle(),
@@ -225,7 +225,7 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
    * integrated, we'll query Bidding Service API to get the highest bidder's ID.
    */
   private void publishAuctionEndedEvent(Item item) {
-    AuctionEndedEvent event = AuctionEndedEvent.of(
+    AuctionEndedEvent event = AuctionEndedEvent.create(
         item.getId(),
         item.getSellerId(),
         item.getTitle(),

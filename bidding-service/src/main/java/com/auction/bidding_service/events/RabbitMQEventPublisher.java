@@ -11,17 +11,19 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 /**
- *
  * RabbitMQ implementation of EventPublisher. Uses Spring AMQP RabbitTemplate to publish events to a
  * topic exchange.
  * <p>
- * Exchange Strategy: - Single topic exchange: "auction-events" - Routing key pattern:
- * "item.{event-type}" (e.g., "item.auction-started") - Consumers bind queues with wildcard routing
- * keys (e.g., "item.*", "item.auction-started")
+ * Exchange Strategy: - Single topic exchange: "auction-events" (shared with all services) - Routing
+ * key pattern: "bidding.{event-type}" (e.g., "bidding.bid-placed") - Consumers bind queues with
+ * wildcard routing keys (e.g., "bidding.*", "bidding.bid-placed")
+ * <p>
+ * Routing Key Examples: - BidPlacedEvent → "bidding.bid-placed" - UserOutbidEvent →
+ * "bidding.user-outbid"
  * <p>
  * Migration Path to SQS: 1. Create SQSEventPublisher implementing EventPublisher 2. Remove @Primary
  * annotation from this class 3. Add @Primary to SQSEventPublisher 4. No changes needed in
- * ItemLifecycleServiceImpl
+ * BidServiceImpl
  * <p>
  * Thread Safety: RabbitTemplate is thread-safe, this class is safe for concurrent use.
  */
@@ -35,7 +37,7 @@ public class RabbitMQEventPublisher implements EventPublisher {
   private final ObjectMapper objectMapper = createObjectMapper();
 
   private static final String EXCHANGE_NAME = "auction-events";
-  private static final String ROUTING_KEY_PREFIX = "item.";
+  private static final String ROUTING_KEY_PREFIX = "bidding.";
 
   @Override
   public <T> void publish(T event) {

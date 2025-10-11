@@ -108,8 +108,10 @@ public class Bid {
     if (thisEffectiveClass != oEffectiveClass) {
       return false;
     }
-    Bid bid = (Bid) o;
-    return getId() != null && Objects.equals(getId(), bid.getId());
+    if (o instanceof Bid bid) {
+      return getId() != null && Objects.equals(getId(), bid.getId());
+    }
+    return false;
   }
 
   /**
