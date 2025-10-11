@@ -1,4 +1,4 @@
-package com.auction.item_service.exceptions;
+package com.auction.bidding_service.exceptions;
 
 /**
  * Exception thrown when event publishing fails after all retry attempts.
@@ -14,7 +14,6 @@ package com.auction.item_service.exceptions;
  * - Alert monitoring systems for investigation
  */
 public class EventPublishException extends RuntimeException {
-
     public EventPublishException(String message) {
         super(message);
     }

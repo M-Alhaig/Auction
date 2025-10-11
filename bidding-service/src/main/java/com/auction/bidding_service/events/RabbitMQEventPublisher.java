@@ -1,6 +1,6 @@
-package com.auction.item_service.events;
+package com.auction.bidding_service.events;
 
-import com.auction.item_service.exceptions.EventPublishException;
+import com.auction.bidding_service.exceptions.EventPublishException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -26,9 +26,9 @@ import org.springframework.stereotype.Component;
  * Thread Safety: RabbitTemplate is thread-safe, this class is safe for concurrent use.
  */
 @Slf4j
-@Primary
 @Component
 @RequiredArgsConstructor
+@Primary
 public class RabbitMQEventPublisher implements EventPublisher {
 
   private final RabbitTemplate rabbitTemplate;
@@ -42,7 +42,6 @@ public class RabbitMQEventPublisher implements EventPublisher {
     String routingKey = buildRoutingKey(event.getClass().getSimpleName());
     publish(event, routingKey);
   }
-
 
   @Override
   public <T> void publish(T event, String routingKey) {
@@ -70,16 +69,16 @@ public class RabbitMQEventPublisher implements EventPublisher {
     }
   }
 
-  private String buildRoutingKey(String eventClassName) {
-    String eventName = eventClassName.replace("Event", "");
-    String kebabCase = eventName.replaceAll("([a-z])([A-Z])", "$1-$2").toLowerCase();
-
-    return ROUTING_KEY_PREFIX + kebabCase;
-  }
-
-  private static ObjectMapper createObjectMapper() {
+  private ObjectMapper createObjectMapper() {
     ObjectMapper mapper = new ObjectMapper();
     mapper.registerModule(new JavaTimeModule());
     return mapper;
   }
+
+  private String buildRoutingKey(String eventClassName) {
+    String eventName = eventClassName.replace("Event", "");
+    String kebabCase = eventName.replaceAll("([a-z])([A-Z])", "$1-$2").toLowerCase();
+    return ROUTING_KEY_PREFIX + kebabCase;
+  }
+
 }
