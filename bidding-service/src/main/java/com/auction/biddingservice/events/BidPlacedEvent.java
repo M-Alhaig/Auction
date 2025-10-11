@@ -27,11 +27,14 @@ public record BidPlacedEvent(String eventId, String eventType, LocalDateTime tim
     return new BidPlacedEvent(UUID.randomUUID().toString(), "BidPlacedEvent", LocalDateTime.now(),
         new BidPlacedData(itemId, bidderId, bidAmount, bidTimestamp));
   }
-}
 
-/**
- * Payload data for BidPlacedEvent.
- */
-record BidPlacedData(Long itemId, UUID bidderId, BigDecimal bidAmount, LocalDateTime bidTimestamp) {
+  /**
+   * Payload data for BidPlacedEvent.
+   */
+  public record BidPlacedData(Long itemId, UUID bidderId, BigDecimal bidAmount,
+                              LocalDateTime bidTimestamp) {
+
+  }
+
 
 }
