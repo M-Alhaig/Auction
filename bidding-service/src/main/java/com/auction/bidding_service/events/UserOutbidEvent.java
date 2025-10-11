@@ -6,49 +6,48 @@ import java.util.UUID;
 
 /**
  * Event published when a user is outbid on an auction item.
- *
- * Consumers:
- * - Notification Service: Sends push notifications / WebSocket alerts to the outbid user
+ * <p>
+ * Consumers: - Notification Service: Sends push notifications / WebSocket alerts to the outbid user
  * - Lambda / SES: Sends email notification to the outbid user
- *
- * Event Envelope Pattern:
- * - eventId: Unique identifier for idempotency
- * - eventType: "UserOutbidEvent" for routing and filtering
- * - timestamp: When the event was published
- * - data: Information about who was outbid and by how much
- *
+ * <p>
+ * Event Envelope Pattern: - eventId: Unique identifier for idempotency - eventType:
+ * "UserOutbidEvent" for routing and filtering - timestamp: When the event was published - data:
+ * Information about who was outbid and by how much
+ * <p>
  * Routing Key Pattern: "bidding.user-outbid"
- *
- * Privacy Note:
- * - oldBidderId is included so consumers can notify the specific user
- * - newBidderId may be hidden in client-facing notifications to prevent bid sniping strategies
+ * <p>
+ * Privacy Note: - oldBidderId is included so consumers can notify the specific user - newBidderId
+ * may be hidden in client-facing notifications to prevent bid sniping strategies
  */
 public record UserOutbidEvent(
-        String eventId,
-        String eventType,
-        LocalDateTime timestamp,
-        UserOutbidData data
+    String eventId,
+    String eventType,
+    LocalDateTime timestamp,
+    UserOutbidData data
 ) {
-    /**
-     * Factory method to create a new UserOutbidEvent with auto-generated metadata.
-     */
-    public static UserOutbidEvent create(Long itemId, UUID oldBidderId, UUID newBidderId, BigDecimal newAmount) {
-        return new UserOutbidEvent(
-                UUID.randomUUID().toString(),
-                "UserOutbidEvent",
-                LocalDateTime.now(),
-                new UserOutbidData(itemId, oldBidderId, newBidderId, newAmount)
-        );
-    }
+
+  /**
+   * Factory method to create a new UserOutbidEvent with auto-generated metadata.
+   */
+  public static UserOutbidEvent create(Long itemId, UUID oldBidderId, UUID newBidderId,
+      BigDecimal newAmount) {
+    return new UserOutbidEvent(
+        UUID.randomUUID().toString(),
+        "UserOutbidEvent",
+        LocalDateTime.now(),
+        new UserOutbidData(itemId, oldBidderId, newBidderId, newAmount)
+    );
+  }
 }
 
 /**
  * Payload data for UserOutbidEvent.
  */
 record UserOutbidData(
-        Long itemId,
-        UUID oldBidderId,    // User who was outbid
-        UUID newBidderId,    // User who placed the new higher bid
-        BigDecimal newAmount // The new highest bid amount
+    Long itemId,
+    UUID oldBidderId,    // User who was outbid
+    UUID newBidderId,    // User who placed the new higher bid
+    BigDecimal newAmount // The new highest bid amount
 ) {
+
 }
