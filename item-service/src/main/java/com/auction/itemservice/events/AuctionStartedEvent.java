@@ -27,14 +27,14 @@ public record AuctionStartedEvent(
 ) {
 
   /**
-   * Factory method to create event with auto-generated metadata.
+   * Create an AuctionStartedEvent populated with generated metadata and the provided auction details.
    *
-   * @param itemId        the auction item ID
-   * @param sellerId      the seller's user ID
+   * @param itemId        the auction item identifier
+   * @param sellerId      the seller's UUID
    * @param title         the auction title
-   * @param startTime     when the auction started
-   * @param startingPrice the initial bid price
-   * @return the constructed event ready for publishing
+   * @param startTime     the auction start time
+   * @param startingPrice the initial bid price for the auction
+   * @return the constructed AuctionStartedEvent with generated eventId, eventType "AuctionStartedEvent", current timestamp, and payload data
    */
   public static AuctionStartedEvent create(
       Long itemId,

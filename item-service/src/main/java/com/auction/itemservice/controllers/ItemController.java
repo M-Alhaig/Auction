@@ -26,15 +26,11 @@ public class ItemController {
   private final ItemService itemService;
 
   /**
-   * Create a new auction item.
-   * <p>
-   * TODO: Replace @RequestHeader with @AuthenticationPrincipal once Spring Security is configured.
-   *       Current approach uses X-Auth-Id header for testing only (NOT secure for production).
-   *       Production: @AuthenticationPrincipal UUID sellerId
+   * Create a new auction item for the specified seller.
    *
-   * @param request  the item creation request
-   * @param sellerId the authenticated seller ID (from header for testing, JWT in production)
-   * @return 201 Created with the created item
+   * @param request  the validated item creation request
+   * @param sellerId the authenticated seller's UUID (currently supplied via `X-Auth-Id` header)
+   * @return the created ItemResponse
    */
   @PostMapping
   public ResponseEntity<ItemResponse> createItem(
@@ -50,16 +46,12 @@ public class ItemController {
   }
 
   /**
-   * Update an existing auction item (PENDING items only).
-   * <p>
-   * TODO: Replace @RequestHeader with @AuthenticationPrincipal once Spring Security is configured.
-   *       Current approach uses X-Auth-Id header for testing only (NOT secure for production).
-   *       Production: @AuthenticationPrincipal UUID userId
+   * Update an existing auction item with the provided partial fields (applies to items in PENDING status).
    *
-   * @param id      the item ID
-   * @param request the partial update request
-   * @param userId  the authenticated user ID (from header for testing, JWT in production)
-   * @return 200 OK with updated item
+   * @param id      the item identifier
+   * @param request the partial update request containing fields to change
+   * @param userId  the UUID of the authenticated user performing the update
+   * @return the updated ItemResponse
    */
   @PatchMapping("/{id}")
   public ResponseEntity<ItemResponse> updateItem(
@@ -76,15 +68,11 @@ public class ItemController {
   }
 
   /**
-   * Delete an auction item (PENDING items only).
-   * <p>
-   * TODO: Replace @RequestHeader with @AuthenticationPrincipal once Spring Security is configured.
-   *       Current approach uses X-Auth-Id header for testing only (NOT secure for production).
-   *       Production: @AuthenticationPrincipal UUID userId
+   * Delete the specified auction item if it is in PENDING status and the requesting user is authorized.
    *
-   * @param id     the item ID
-   * @param userId the authenticated user ID (from header for testing, JWT in production)
-   * @return 204 No Content
+   * @param id the item identifier
+   * @param userId the authenticated user's UUID
+   * @return HTTP 204 No Content when the item is successfully deleted
    */
   @DeleteMapping("/{id}")
   public ResponseEntity<Void> deleteItem(
@@ -97,6 +85,12 @@ public class ItemController {
     return ResponseEntity.noContent().build();
   }
 
+  /**
+   * Retrieve an item by its identifier.
+   *
+   * @param id the item's database identifier
+   * @return the requested item's representation
+   */
   @GetMapping("/{id}")
   public ResponseEntity<ItemResponse> getItemById(@PathVariable Long id) {
     log.debug("GET /api/items/{}", id);
@@ -104,6 +98,12 @@ public class ItemController {
     return ResponseEntity.ok(response);
   }
 
+  /**
+   * Retrieve a paginated list of all items.
+   *
+   * @param pageable pagination and sorting information; defaults to page 0 and size 20 when not provided
+   * @return a page of ItemResponse objects for the requested page
+   */
   @GetMapping
   public ResponseEntity<Page<ItemResponse>> getAllItems(
       @PageableDefault(page = 0, size = 20) Pageable pageable
@@ -113,6 +113,13 @@ public class ItemController {
     return ResponseEntity.ok(response);
   }
 
+  /**
+   * Retrieve a page of items filtered by the given status.
+   *
+   * @param status   the item status to filter by
+   * @param pageable pagination and sorting information; defaults to page 0 and size 20
+   * @return         a page of ItemResponse objects matching the requested status
+   */
   @GetMapping("/status/{status}")
   public ResponseEntity<Page<ItemResponse>> getItemsByStatus(
       @PathVariable ItemStatus status,
@@ -123,6 +130,13 @@ public class ItemController {
     return ResponseEntity.ok(response);
   }
 
+  /**
+   * Retrieve a page of items belonging to the specified seller.
+   *
+   * @param sellerId the UUID of the seller whose items to retrieve
+   * @param pageable pagination and sorting information (defaults to page 0, size 20 when not provided)
+   * @return a Page of ItemResponse objects for the given seller and requested page
+   */
   @GetMapping("/seller/{sellerId}")
   public ResponseEntity<Page<ItemResponse>> getItemsBySeller(
       @PathVariable UUID sellerId,
@@ -133,6 +147,14 @@ public class ItemController {
     return ResponseEntity.ok(response);
   }
 
+  /**
+   * Retrieve a paginated list of items belonging to a specific seller filtered by item status.
+   *
+   * @param sellerId the UUID of the seller whose items to retrieve
+   * @param status the ItemStatus to filter items by
+   * @param pageable pagination and sorting information (defaults to page 0, size 20)
+   * @return a Page of ItemResponse containing items that match the seller and status
+   */
   @GetMapping("/seller/{sellerId}/status/{status}")
   public ResponseEntity<Page<ItemResponse>> getItemsBySellerAndStatus(
       @PathVariable UUID sellerId,
@@ -145,6 +167,12 @@ public class ItemController {
     return ResponseEntity.ok(response);
   }
 
+  /**
+   * Retrieve active auctions that are ending soon, using the provided pagination.
+   *
+   * @param pageable pagination information (defaults to page 0, size 20)
+   * @return a page of ItemResponse objects representing active auctions ending soon
+   */
   @GetMapping("/active/ending-soon")
   public ResponseEntity<Page<ItemResponse>> getActiveAuctionsEndingSoon(
       @PageableDefault(page = 0, size = 20) Pageable pageable

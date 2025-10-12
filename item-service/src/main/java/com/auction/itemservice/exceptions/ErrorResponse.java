@@ -21,14 +21,25 @@ public record ErrorResponse(
 ) {
 
   /**
-   * Constructor for simple errors without field-level details.
+   * Create an ErrorResponse with the current timestamp and no field-level errors.
+   *
+   * @param status HTTP status code
+   * @param error short error description
+   * @param message detailed error message
+   * @param path request path where the error occurred
    */
   public ErrorResponse(int status, String error, String message, String path) {
     this(LocalDateTime.now(), status, error, message, path, null);
   }
 
   /**
-   * Constructor for validation errors with field-level details.
+   * Create an ErrorResponse with the current timestamp and field-level validation details.
+   *
+   * @param status      the HTTP status code
+   * @param error       a short error description
+   * @param message     a detailed error message
+   * @param path        the request path where the error occurred
+   * @param fieldErrors a map of field names to validation error messages; may be null
    */
   public ErrorResponse(int status, String error, String message, String path,
       Map<String, String> fieldErrors) {

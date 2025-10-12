@@ -18,31 +18,27 @@ import com.auction.itemservice.exceptions.EventPublishException;
 public interface EventPublisher {
 
   /**
-   * Publish an event to the messaging infrastructure. The event will be routed based on its type
-   * and the underlying implementation.
-   *
-   * <p>RabbitMQ Implementation: - Routes to exchange based on event class name - Uses topic
-   * exchange
-   * with routing key pattern: {service}.{event-type}
-   *
-   * <p>SQS/SNS Implementation: - Publishes to SNS topic based on event class name - Subscribers
-   * (SQS
-   * queues) filter by event type
-   *
-   * @param event the event object to publish (must be serializable to JSON)
-   * @param <T>   the event type (should be a record or POJO)
-   * @throws EventPublishException if publishing fails after retries
-   */
+ * Publish an event to the messaging infrastructure.
+ *
+ * <p>Routing is determined by the underlying implementation (for example, exchange/topic or
+ * topic/filters).
+ *
+ * @param event the event object to publish; must be serializable to JSON
+ * @param <T>   the event type (typically a record or POJO)
+ * @throws EventPublishException if publishing fails after retries
+ */
   <T> void publish(T event);
 
   /**
-   * Publish an event with additional routing hints. Useful for explicit routing in multi-tenant or
-   * complex routing scenarios.
-   *
-   * @param event      the event object to publish
-   * @param routingKey routing hint (RabbitMQ: routing key, SQS: message attribute)
-   * @param <T>        the event type
-   * @throws EventPublishException if publishing fails after retries
-   */
+ * Publish an event with an explicit routing hint for broker-directed routing.
+ *
+ * <p>The routing hint is used by the underlying implementation to determine delivery (for example,
+ * as the RabbitMQ routing key or as an SQS/SNS message attribute). The event must be serializable to JSON.
+ *
+ * @param <T>        the event type
+ * @param event      the event object to publish
+ * @param routingKey routing hint interpreted by the underlying broker (e.g., RabbitMQ routing key or SQS/SNS message attribute)
+ * @throws EventPublishException if publishing fails after retries
+ */
   <T> void publish(T event, String routingKey);
 }

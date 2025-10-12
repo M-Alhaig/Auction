@@ -50,14 +50,11 @@ public class BidController {
   private final BidService bidService;
 
   /**
-   * Place a new bid on an auction item.
+   * Create a new bid for an auction item using the caller's authenticated ID.
    *
-   * <p>Concurrency: Uses Redis distributed locking to prevent race conditions when multiple users
-   * bid simultaneously.
-   *
-   * @param request the bid details (itemId, bidAmount)
-   * @param authId  the authenticated user's ID from X-Auth-Id header (temporary until JWT)
-   * @return the created bid with isCurrentHighest=true
+   * @param request the bid details containing the target item ID and bid amount
+   * @param authId  the caller's UUID string from the `X-Auth-Id` request header (used as the bidder ID)
+   * @return the created `BidResponse`, marked as the current highest bid when applicable
    */
   @PostMapping
   public ResponseEntity<BidResponse> placeBid(
@@ -77,13 +74,13 @@ public class BidController {
   }
 
   /**
-   * Get paginated bid history for a specific auction item.
+   * Retrieve a page of bid responses for the specified auction item.
    *
-   * <p>Default sort: timestamp descending (newest first). Caller can override via query params.
+   * <p>Returned bids are ordered by timestamp descending by default and include an `isCurrentHighest` flag.
    *
-   * @param itemId   the item ID to query
-   * @param pageable pagination parameters (page, size, sort)
-   * @return page of bids with isCurrentHighest flag
+   * @param itemId  the ID of the auction item to query
+   * @param pageable pagination parameters (page, size, sort). Defaults to page=0, size=20, sort=timestamp DESC and can be overridden via query parameters.
+   * @return        a page of BidResponse objects for the item
    */
   @GetMapping("/items/{itemId}")
   public ResponseEntity<Page<BidResponse>> getBidHistory(
@@ -102,10 +99,9 @@ public class BidController {
   }
 
   /**
-   * Get the current highest bid for an auction item.
+   * Retrieve the current highest bid for the specified auction item.
    *
-   * @param itemId the item ID to query
-   * @return the highest bid, or 404 if no bids exist
+   * @return the highest BidResponse when present; an empty response with HTTP 404 status if no bids exist.
    */
   @GetMapping("/items/{itemId}/highest")
   public ResponseEntity<BidResponse> getHighestBid(@PathVariable Long itemId) {
@@ -125,16 +121,16 @@ public class BidController {
   }
 
   /**
-   * Get paginated bid history for a specific user across all items.
+   * Retrieve a paginated bid history for a user across all items.
    *
-   * <p>Returns simple chronological history without expensive isCurrentHighest checks. All bids are
-   * marked as historical (isCurrentHighest=false) for performance.
+   * <p>Bids are returned as historical records and do not indicate whether they are the current
+   * highest bid.
    *
-   * <p>Default sort: timestamp descending (newest first).
+   * <p>Default sorting is by `timestamp` descending (newest first) unless overridden via `pageable`.
    *
-   * @param bidderId the user's UUID
-   * @param pageable pagination parameters (page, size, sort)
-   * @return page of user's bids
+   * @param bidderId UUID of the bidder whose bids are being retrieved
+   * @param pageable pagination and sorting parameters (default: page=0, size=20, sort=timestamp, direction=DESC)
+   * @return a page of the user's bids
    */
   @GetMapping("/users/{bidderId}")
   public ResponseEntity<Page<BidResponse>> getUserBids(
@@ -203,12 +199,10 @@ public class BidController {
   }
 
   /**
-   * Get all distinct item IDs that a user has bid on.
+   * Retrieve distinct item IDs the specified user has placed bids on.
    *
-   * <p>Useful for "My Active Auctions" dashboard feature.
-   *
-   * @param bidderId the user's UUID
-   * @return list of item IDs (may be empty)
+   * @param bidderId UUID of the bidder
+   * @return list of item IDs the user has bid on; may be empty
    */
   @GetMapping("/users/{bidderId}/items")
   public ResponseEntity<List<Long>> getItemsUserHasBidOn(@PathVariable UUID bidderId) {

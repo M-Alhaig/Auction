@@ -21,31 +21,23 @@ import com.auction.biddingservice.exceptions.EventPublishException;
 public interface EventPublisher {
 
     /**
-     * Publish an event to the messaging infrastructure.
-     * The event will be routed based on its type and the underlying implementation.
-     * <p>
-     * RabbitMQ Implementation:
-     * - Routes to exchange based on event class name
-     * - Uses topic exchange with routing key pattern: {service}.{event-type}
-     * <p>
-     * SQS/SNS Implementation:
-     * - Publishes to SNS topic based on event class name
-     * - Subscribers (SQS queues) filter by event type
-     *
-     * @param event the event object to publish (must be serializable to JSON)
-     * @param <T>   the event type (should be a record or POJO)
-     * @throws EventPublishException if publishing fails after retries
-     */
+ * Publish an event to the configured messaging infrastructure.
+ *
+ * Routing and delivery semantics depend on the concrete implementation.
+ *
+ * @param <T>   the event type (typically a record or POJO)
+ * @param event the event to publish; must be serializable to JSON
+ * @throws EventPublishException if publishing fails after retries
+ */
     <T> void publish(T event);
 
     /**
-     * Publish an event with additional routing hints.
-     * Useful for explicit routing in multi-tenant or complex routing scenarios.
-     *
-     * @param event      the event object to publish
-     * @param routingKey routing hint (RabbitMQ: routing key, SQS: message attribute)
-     * @param <T>        the event type
-     * @throws EventPublishException if publishing fails after retries
-     */
+ * Publish the given event to the configured messaging infrastructure using a routing hint.
+ *
+ * @param event the event object to publish; must be serializable to JSON
+ * @param routingKey routing hint used by the underlying broker (e.g., RabbitMQ routing key or SQS message attribute)
+ * @param <T> the event type
+ * @throws EventPublishException if publishing fails after retries
+ */
     <T> void publish(T event, String routingKey);
 }

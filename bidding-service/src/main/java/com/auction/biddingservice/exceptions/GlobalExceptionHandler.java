@@ -28,10 +28,11 @@ public class GlobalExceptionHandler {
   public static final String BAD_REQUEST = "Bad Request";
 
   /**
-   * Handle InvalidBidException. Returns 400 BAD REQUEST.
-   * <p>
-   * Common causes: - Bid amount not higher than current highest - Auction not active - User bidding
-   * on own auction
+   * Convert an InvalidBidException into an HTTP 400 Bad Request error response.
+   *
+   * @param ex the InvalidBidException describing why the bid is invalid
+   * @param request the HTTP request whose URI is included in the error payload
+   * @return a ResponseEntity containing an ErrorResponse with status 400, the exception message, and the request URI
    */
   @ExceptionHandler(InvalidBidException.class)
   public ResponseEntity<ErrorResponse> handleInvalidBid(InvalidBidException ex,
@@ -45,10 +46,12 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Handle BidLockException. Returns 409 CONFLICT.
-   * <p>
-   * Indicates another bid is being processed for the same item. Client should retry after a short
-   * delay.
+   * Handle a bid lock conflict and produce a 409 Conflict response.
+   *
+   * @param ex the BidLockException indicating another bid for the same item is being processed
+   * @param request the HTTP request that triggered the exception (used to populate the request path)
+   * @return a ResponseEntity containing an ErrorResponse with HTTP status 409, error "Conflict",
+   *         the exception message, and the request URI
    */
   @ExceptionHandler(BidLockException.class)
   public ResponseEntity<ErrorResponse> handleBidLock(BidLockException ex,
@@ -61,9 +64,12 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Handle AuctionNotFoundException. Returns 404 NOT FOUND.
-   * <p>
-   * Item doesn't exist in Item Service or was deleted.
+   * Create a 404 Not Found error response for a missing auction.
+   *
+   * @param ex      the AuctionNotFoundException whose message will be included in the response
+   * @param request the HTTP request used to obtain the request URI for the response
+   * @return        a ResponseEntity containing an ErrorResponse with HTTP 404 status, error "Not Found",
+   *                the exception message, and the request URI
    */
   @ExceptionHandler(AuctionNotFoundException.class)
   public ResponseEntity<ErrorResponse> handleAuctionNotFound(AuctionNotFoundException ex,
@@ -76,9 +82,10 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Handle BidNotFoundException. Returns 404 NOT FOUND.
-   * <p>
-   * Specific bid ID doesn't exist in database.
+   * Converts a BidNotFoundException into an HTTP 404 Not Found ErrorResponse.
+   *
+   * @return an ErrorResponse containing HTTP status 404, error code "Not Found",
+   *         the exception message, and the request URI
    */
   @ExceptionHandler(BidNotFoundException.class)
   public ResponseEntity<ErrorResponse> handleBidNotFound(BidNotFoundException ex,
@@ -91,7 +98,13 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Handle IllegalArgumentException (generic business rule violations). Returns 400 BAD REQUEST.
+   * Map an IllegalArgumentException to a 400 Bad Request response.
+   *
+   * Logs a warning with the request URI and the exception message.
+   *
+   * @param ex      the IllegalArgumentException that occurred
+   * @param request the HTTP request whose URI is included in the response
+   * @return an ErrorResponse with HTTP status 400, error code "Bad Request", the exception message, and the request URI
    */
   @ExceptionHandler(IllegalArgumentException.class)
   public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex,
@@ -104,8 +117,11 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Handle validation errors from @Valid annotations. Returns 400 BAD REQUEST with field-level
-   * error details.
+   * Convert a MethodArgumentNotValidException into a 400 Bad Request ErrorResponse containing field-level validation messages.
+   *
+   * @param ex the validation exception containing binding results with field errors
+   * @param request the HTTP request used to extract the request URI for the response
+   * @return an ErrorResponse with HTTP status 400, error "Validation Failed", a generic validation message, the request path, and a map of field names to validation messages under `fieldErrors`
    */
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public ResponseEntity<ErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex,
@@ -127,7 +143,12 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Handle JSON deserialization errors. Returns 400 BAD REQUEST.
+   * Convert a malformed or unreadable HTTP request body into a 400 Bad Request error response.
+   *
+   * If the exception's root cause is an IllegalArgumentException, its message is used as the error message;
+   * otherwise a generic "Invalid request body" message is returned.
+   *
+   * @return a ResponseEntity containing an ErrorResponse describing the bad request with HTTP status 400
    */
   @ExceptionHandler(HttpMessageNotReadableException.class)
   public ResponseEntity<ErrorResponse> handleMessageNotReadable(HttpMessageNotReadableException ex,
@@ -152,10 +173,12 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Handle all other unexpected exceptions. Returns 500 INTERNAL SERVER ERROR.
-   * <p>
-   * CRITICAL: This catches all unexpected errors. Always logs with full stack trace for debugging.
-   * Monitor these logs closely - they indicate bugs or infrastructure issues.
+   * Convert any uncaught exception into a standardized 500 Internal Server Error response.
+   *
+   * @param ex the unexpected exception that was thrown
+   * @param request the HTTP request that triggered the exception (used to populate the response path)
+   * @return an ErrorResponse with HTTP status 500, error "Internal Server Error", a generic error message,
+   *         and the request URI
    */
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex,

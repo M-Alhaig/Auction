@@ -31,16 +31,17 @@ public class RabbitMQConfig {
   public static final String EXCHANGE_NAME = "auction-events";
 
   /**
-   * Declare the topic exchange for auction events. This is the same exchange used by Item Service
-   * for auction lifecycle events. Consumers will bind their queues to this exchange with routing
-   * key patterns.
-   * <p>
-   * Topic Exchange Routing Examples: - Producer sends with routing key "bidding.bid-placed" -
-   * Consumer queue bound with "bidding.*" → receives all bidding events - Consumer queue bound with
-   * "*.bid-placed" → receives bid-placed events from any service - Consumer queue bound with "#" →
-   * receives all auction events
+   * Declares a durable topic exchange for auction events shared with the Item Service.
    *
-   * @return the topic exchange bean
+   * <p>Consumers bind queues to this exchange using routing key patterns. Examples:
+   * <ul>
+   *   <li>Producer sends with routing key "bidding.bid-placed".</li>
+   *   <li>Queue bound with "bidding.*" → receives all bidding events.</li>
+   *   <li>Queue bound with "*.bid-placed" → receives bid-placed events from any service.</li>
+   *   <li>Queue bound with "#" → receives all auction events.</li>
+   * </ul>
+   *
+   * @return the TopicExchange for auction events
    */
   @Bean
   public TopicExchange auctionEventsExchange() {
@@ -52,15 +53,9 @@ public class RabbitMQConfig {
   }
 
   /**
-   * Configure RabbitTemplate to use Jackson for JSON serialization. This ensures events are sent as
-   * JSON strings, not Java serialized objects.
-   * <p>
-   * Why JSON over Java Serialization: - Cross-language compatibility (consumers can be Python,
-   * Node.js, etc.) - Human-readable in RabbitMQ management UI - Version-safe (no
-   * ClassNotFoundException on schema changes)
+   * Create and configure a RabbitTemplate that serializes messages as JSON using Jackson.
    *
-   * @param connectionFactory injected by Spring Boot auto-configuration
-   * @return configured RabbitTemplate
+   * @return the configured RabbitTemplate
    */
   @Bean
   public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
@@ -70,9 +65,9 @@ public class RabbitMQConfig {
   }
 
   /**
-   * JSON message converter using Jackson. Handles Java 8 date/time types (LocalDateTime, etc.).
+   * Provides a Jackson-based JSON MessageConverter that supports Java 8 date/time types.
    *
-   * @return the message converter
+   * @return a MessageConverter that serializes and deserializes message payloads to/from JSON, including Java 8 date/time types (e.g., LocalDateTime)
    */
   @Bean
   public MessageConverter jsonMessageConverter() {

@@ -40,12 +40,29 @@ public class RabbitMQEventPublisher implements EventPublisher {
   private static final String EXCHANGE_NAME = "auction-events";
   private static final String ROUTING_KEY_PREFIX = "item.";
 
+  /**
+   * Publishes the given event to the default topic routing key derived from its class name.
+   *
+   * <p>The routing key is computed by removing a trailing "Event" suffix (if present), converting
+   * the remaining CamelCase name to kebab-case, and prefixing it with "item.", then the event is
+   * published using that routing key.
+   *
+   * @param event the event object to publish; its class name is used to derive the routing key
+   */
   @Override
   public <T> void publish(T event) {
     String routingKey = buildRoutingKey(event.getClass().getSimpleName());
     publish(event, routingKey);
   }
 
+  /**
+   * Publish the given event to the "auction-events" topic exchange using the specified routing key.
+   *
+   * @param <T> the event type
+   * @param event the event payload to publish; will be serialized to JSON by the configured message converter
+   * @param routingKey the routing key to use (e.g., "item.auction-started")
+   * @throws EventPublishException if sending the message fails
+   */
   @Override
   public <T> void publish(T event, String routingKey) {
     try {
@@ -66,6 +83,15 @@ public class RabbitMQEventPublisher implements EventPublisher {
     }
   }
 
+  /**
+   * Builds the routing key used for publishing an event.
+   *
+   * <p>Removes a trailing "Event" suffix from the provided class name, converts the remaining
+   * Pascal/CamelCase name to kebab-case, and prefixes it with the configured routing-key prefix.
+   *
+   * @param eventClassName the event's class name (for example, "AuctionStartedEvent")
+   * @return the routing key, e.g. "item.auction-started"
+   */
   private String buildRoutingKey(String eventClassName) {
     String eventName = eventClassName.replace("Event", "");
     String kebabCase = eventName.replaceAll("([a-z])([A-Z])", "$1-$2").toLowerCase();

@@ -35,7 +35,13 @@ public class ItemServiceImpl implements ItemService {
   private final CategoryRepository categoryRepository;
   private final ItemMapper itemMapper;
 
-  // ==================== CRUD OPERATIONS ====================
+  /**
+   * Create a new auction item using the provided request data and associate it with the given seller.
+   *
+   * @param request  the data for the item to create
+   * @param sellerId the UUID of the seller who owns the new item
+   * @return the created item's representation, including its assigned ID and persisted fields
+   */
 
   @Override
   public ItemResponse createItem(CreateItemRequest request, UUID sellerId) {
@@ -51,6 +57,19 @@ public class ItemServiceImpl implements ItemService {
     return itemMapper.toItemResponse(item);
   }
 
+  /**
+   * Updates fields of an existing item owned by the authenticated user when the item is in PENDING status.
+   *
+   * Applies the non-null fields from the provided request to the item, persists the changes, and returns the updated item representation.
+   *
+   * @param itemId              the identifier of the item to update
+   * @param request             the update payload containing fields to apply
+   * @param authenticatedUserId the identifier of the user performing the update; must be the item's seller
+   * @return the updated ItemResponse representing the persisted item
+   * @throws ItemNotFoundException if no item exists with the given {@code itemId}
+   * @throws UnauthorizedException if the authenticated user is not the item's seller
+   * @throws IllegalStateException if the item is not in PENDING status
+   */
   @Override
   public ItemResponse updateItem(Long itemId, UpdateItemRequest request, UUID authenticatedUserId) {
     log.debug("Updating item {} by user {}", itemId, authenticatedUserId);
@@ -69,6 +88,15 @@ public class ItemServiceImpl implements ItemService {
   }
 
 
+  /**
+   * Delete the specified item if the requester is the seller and the item is in PENDING status.
+   *
+   * @param itemId             the identifier of the item to delete
+   * @param authenticatedUserId the identifier of the user requesting the deletion
+   * @throws ItemNotFoundException if no item exists with the given id
+   * @throws UnauthorizedException if the authenticated user does not own the item
+   * @throws IllegalStateException if the item is not in PENDING status
+   */
   @Override
   public void deleteItem(Long itemId, UUID authenticatedUserId) {
     log.debug("Deleting item {} by user {}", itemId, authenticatedUserId);
@@ -83,7 +111,12 @@ public class ItemServiceImpl implements ItemService {
     log.info("Item deleted - ID: {}, seller: {}", itemId, authenticatedUserId);
   }
 
-  // ==================== QUERY OPERATIONS ====================
+  /**
+   * Retrieve an item by its identifier and return its response DTO.
+   *
+   * @return the matching ItemResponse
+   * @throws ItemNotFoundException if no item with the given id exists
+   */
 
   @Override
   @Transactional(readOnly = true)
@@ -94,6 +127,12 @@ public class ItemServiceImpl implements ItemService {
         .orElseThrow(() -> new ItemNotFoundException(itemId));
   }
 
+  /**
+   * Retrieve a paginated list of all items.
+   *
+   * @param pageable paging and sorting parameters
+   * @return a page of ItemResponse objects representing all items according to the provided pageable
+   */
   @Override
   @Transactional(readOnly = true)
   public Page<ItemResponse> getAllItems(Pageable pageable) {
@@ -102,6 +141,13 @@ public class ItemServiceImpl implements ItemService {
     return itemRepository.findAll(pageable).map(itemMapper::toItemResponse);
   }
 
+  /**
+   * Retrieve a page of items filtered by the given status.
+   *
+   * @param status   the item status to filter by
+   * @param pageable pagination and sorting information for the result page
+   * @return a page of ItemResponse objects matching the specified status
+   */
   @Override
   @Transactional(readOnly = true)
   public Page<ItemResponse> getItemsByStatus(ItemStatus status, Pageable pageable) {
@@ -109,6 +155,13 @@ public class ItemServiceImpl implements ItemService {
     return itemRepository.findByStatus(status, pageable).map(itemMapper::toItemResponse);
   }
 
+  /**
+   * Retrieve a paginated list of items owned by the specified seller.
+   *
+   * @param sellerId the UUID of the seller whose items to fetch
+   * @param pageable pagination and sorting parameters for the result set
+   * @return a page of ItemResponse objects representing the seller's items
+   */
   @Override
   @Transactional(readOnly = true)
   public Page<ItemResponse> getItemsBySeller(UUID sellerId, Pageable pageable) {
@@ -116,6 +169,14 @@ public class ItemServiceImpl implements ItemService {
     return itemRepository.findBySellerId(sellerId, pageable).map(itemMapper::toItemResponse);
   }
 
+  /**
+   * Retrieve paginated items owned by a specific seller filtered by the provided status.
+   *
+   * @param sellerId the UUID of the seller whose items should be returned
+   * @param status   the ItemStatus to filter the seller's items by
+   * @param pageable pagination and sorting information for the result set
+   * @return a page of ItemResponse objects for the seller that match the given status
+   */
   @Override
   @Transactional(readOnly = true)
   public Page<ItemResponse> getItemsBySellerAndStatus(UUID sellerId, ItemStatus status,
@@ -125,6 +186,12 @@ public class ItemServiceImpl implements ItemService {
         .map(itemMapper::toItemResponse);
   }
 
+  /**
+   * Retrieve active auction items ordered by nearest end time.
+   *
+   * @param pageable pagination parameters for the result set
+   * @return a page of ItemResponse objects with status ACTIVE ordered by ascending end time
+   */
   @Override
   @Transactional(readOnly = true)
   public Page<ItemResponse> getActiveAuctionsEndingSoon(Pageable pageable) {
@@ -136,7 +203,13 @@ public class ItemServiceImpl implements ItemService {
   // ==================== PRIVATE HELPER METHODS ====================
 
 
-  // - validateOwnership(Item item, UUID userId)
+  /**
+   * Ensures the provided user is the seller/owner of the given item.
+   *
+   * @param item   the item whose ownership is being validated
+   * @param userId the ID of the user attempting the operation
+   * @throws UnauthorizedException if `userId` does not equal the item's seller ID
+   */
   private void validateOwnership(Item item, UUID userId) {
     if (!item.getSellerId().equals(userId)) {
       log.warn("Unauthorized access attempt - itemId: {}, actualSeller: {}, attemptedBy: {}",
@@ -145,7 +218,12 @@ public class ItemServiceImpl implements ItemService {
     }
   }
 
-  // - validateItemIsPending(Item item)
+  /**
+   * Ensure the provided item's status is PENDING.
+   *
+   * @param item the item whose status will be validated
+   * @throws IllegalStateException if the item's status is not PENDING
+   */
   private void validateItemIsPending(Item item) {
     if (item.getStatus() != ItemStatus.PENDING) {
       log.warn("Cannot modify item - itemId: {}, currentStatus: {}, expectedStatus: PENDING",
@@ -154,7 +232,13 @@ public class ItemServiceImpl implements ItemService {
     }
   }
 
-  // - validateAndFetchCategories(Set<Integer> categoryIds)
+  /**
+   * Validate the provided category IDs and fetch the corresponding Category entities.
+   *
+   * @param categoryIds the set of category IDs to validate; may be null or empty
+   * @return a set of matching Category entities; an empty set if {@code categoryIds} is null or empty
+   * @throws IllegalArgumentException if one or more requested category IDs do not exist
+   */
   private Set<Category> validateAndFetchCategories(Set<Integer> categoryIds) {
     if (categoryIds == null || categoryIds.isEmpty()) {
       return Set.of();
@@ -175,6 +259,17 @@ public class ItemServiceImpl implements ItemService {
     return categories;
   }
 
+  /**
+   * Apply non-null fields from an UpdateItemRequest to the given Item entity.
+   *
+   * <p>Only fields present (non-null) in the request are copied. If the starting price is updated,
+   * the method synchronizes the item's current price to the new starting price only when the current
+   * price still equals the previous starting price (indicating no bids); otherwise the current price
+   * is preserved.
+   *
+   * @param request the update request containing optional fields to apply
+   * @param item the item entity to modify in-place
+   */
   private void updateItemFields(UpdateItemRequest request, Item item) {
     if (request.title() != null) {
       item.setTitle(request.title());

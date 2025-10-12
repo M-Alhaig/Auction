@@ -10,10 +10,22 @@ package com.auction.biddingservice.exceptions;
  */
 public class AuctionNotFoundException extends RuntimeException {
 
+  /**
+   * Constructs an exception indicating the auction with the specified ID could not be found.
+   *
+   * The exception message will be "Auction with ID {itemId} not found".
+   *
+   * @param itemId the identifier of the auction item that was not found
+   */
   public AuctionNotFoundException(Long itemId) {
     super("Auction with ID " + itemId + " not found");
   }
 
+  /**
+   * Create an AuctionNotFoundException with a custom detail message.
+   *
+   * @param message the detail message describing the reason the auction was not found
+   */
   public AuctionNotFoundException(String message) {
     super(message);
   }
