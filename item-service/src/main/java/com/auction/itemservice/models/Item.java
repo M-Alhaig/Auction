@@ -41,6 +41,9 @@ public class Item {
   @Column(name = "current_price", nullable = false, precision = 10, scale = 2)
   private BigDecimal currentPrice;
 
+  @Column(name = "winner_id")
+  private UUID winnerId;
+
   @Column(name = "image_url", length = 500)
   private String imageUrl;
 
