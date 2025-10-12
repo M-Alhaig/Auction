@@ -28,6 +28,7 @@ public record BidPlacedEvent(String eventId, String eventType, LocalDateTime tim
    * @param bidTimestamp the time when the bid was placed (may differ from the event publish timestamp)
    * @return            a BidPlacedEvent whose eventId is generated and whose timestamp is set to the current time; its data payload contains the provided bid details
    */
+  // TODO: zone aware timestamp?
   public static BidPlacedEvent create(Long itemId, UUID bidderId, BigDecimal bidAmount,
       LocalDateTime bidTimestamp) {
     return new BidPlacedEvent(UUID.randomUUID().toString(), "BidPlacedEvent", LocalDateTime.now(),
