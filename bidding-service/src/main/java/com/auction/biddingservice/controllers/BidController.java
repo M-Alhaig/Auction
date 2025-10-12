@@ -88,7 +88,7 @@ public class BidController {
   @GetMapping("/items/{itemId}")
   public ResponseEntity<Page<BidResponse>> getBidHistory(
       @PathVariable Long itemId,
-      @PageableDefault(size = 20, sort = "timestamp", direction = Sort.Direction.DESC)
+      @PageableDefault(page = 0, size = 20, sort = "timestamp", direction = Sort.Direction.DESC)
       Pageable pageable) {
 
     log.debug("GET /api/bids/items/{} - page: {}, size: {}",
@@ -139,7 +139,7 @@ public class BidController {
   @GetMapping("/users/{bidderId}")
   public ResponseEntity<Page<BidResponse>> getUserBids(
       @PathVariable UUID bidderId,
-      @PageableDefault(size = 20, sort = "timestamp", direction = Sort.Direction.DESC)
+      @PageableDefault(page = 0, size = 20, sort = "timestamp", direction = Sort.Direction.DESC)
       Pageable pageable) {
 
     log.debug("GET /api/bids/users/{} - page: {}, size: {}",
@@ -168,7 +168,7 @@ public class BidController {
   public ResponseEntity<Page<BidResponse>> getUserBidsForItem(
       @PathVariable Long itemId,
       @PathVariable UUID bidderId,
-      @PageableDefault(size = 20, sort = "timestamp", direction = Sort.Direction.DESC)
+      @PageableDefault(page = 0, size = 20, sort = "timestamp", direction = Sort.Direction.DESC)
       Pageable pageable) {
 
     log.debug("GET /api/bids/items/{}/users/{} - page: {}, size: {}",

@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -105,11 +106,9 @@ public class ItemController {
 
   @GetMapping
   public ResponseEntity<Page<ItemResponse>> getAllItems(
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "20") int size
+      @PageableDefault(page = 0, size = 20) Pageable pageable
   ) {
-    log.debug("GET /api/items - page: {}, size: {}", page, size);
-    Pageable pageable = Pageable.ofSize(size).withPage(page);
+    log.debug("GET /api/items - page: {}, size: {}", pageable.getPageNumber(), pageable.getPageSize());
     Page<ItemResponse> response = itemService.getAllItems(pageable);
     return ResponseEntity.ok(response);
   }
@@ -117,11 +116,9 @@ public class ItemController {
   @GetMapping("/status/{status}")
   public ResponseEntity<Page<ItemResponse>> getItemsByStatus(
       @PathVariable ItemStatus status,
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "20") int size
+      @PageableDefault(page = 0, size = 20) Pageable pageable
   ) {
-    log.debug("GET /api/items/status/{} - page: {}, size: {}", status, page, size);
-    Pageable pageable = Pageable.ofSize(size).withPage(page);
+    log.debug("GET /api/items/status/{} - page: {}, size: {}", status, pageable.getPageNumber(), pageable.getPageSize());
     Page<ItemResponse> response = itemService.getItemsByStatus(status, pageable);
     return ResponseEntity.ok(response);
   }
@@ -129,11 +126,9 @@ public class ItemController {
   @GetMapping("/seller/{sellerId}")
   public ResponseEntity<Page<ItemResponse>> getItemsBySeller(
       @PathVariable UUID sellerId,
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "20") int size
+      @PageableDefault(page = 0, size = 20) Pageable pageable
   ) {
-    log.debug("GET /api/items/seller/{} - page: {}, size: {}", sellerId, page, size);
-    Pageable pageable = Pageable.ofSize(size).withPage(page);
+    log.debug("GET /api/items/seller/{} - page: {}, size: {}", sellerId, pageable.getPageNumber(), pageable.getPageSize());
     Page<ItemResponse> response = itemService.getItemsBySeller(sellerId, pageable);
     return ResponseEntity.ok(response);
   }
@@ -142,23 +137,19 @@ public class ItemController {
   public ResponseEntity<Page<ItemResponse>> getItemsBySellerAndStatus(
       @PathVariable UUID sellerId,
       @PathVariable ItemStatus status,
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "20") int size
+      @PageableDefault(page = 0, size = 20) Pageable pageable
   ) {
-    log.debug("GET /api/items/seller/{}/status/{} - page: {}, size: {}", sellerId, status, page,
-        size);
-    Pageable pageable = Pageable.ofSize(size).withPage(page);
+    log.debug("GET /api/items/seller/{}/status/{} - page: {}, size: {}", sellerId, status, pageable.getPageNumber(),
+        pageable.getPageSize());
     Page<ItemResponse> response = itemService.getItemsBySellerAndStatus(sellerId, status, pageable);
     return ResponseEntity.ok(response);
   }
 
   @GetMapping("/active/ending-soon")
   public ResponseEntity<Page<ItemResponse>> getActiveAuctionsEndingSoon(
-      @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "20") int size
+      @PageableDefault(page = 0, size = 20) Pageable pageable
   ) {
-    log.debug("GET /api/items/active/ending-soon - page: {}, size: {}", page, size);
-    Pageable pageable = Pageable.ofSize(size).withPage(page);
+    log.debug("GET /api/items/active/ending-soon - page: {}, size: {}", pageable.getPageNumber(), pageable.getPageSize());
     Page<ItemResponse> response = itemService.getActiveAuctionsEndingSoon(pageable);
     return ResponseEntity.ok(response);
   }
