@@ -6,7 +6,6 @@ import com.auction.biddingservice.events.BidPlacedEvent;
 import com.auction.biddingservice.events.EventPublisher;
 import com.auction.biddingservice.events.UserOutbidEvent;
 import com.auction.biddingservice.exceptions.BidLockException;
-import com.auction.biddingservice.exceptions.BidNotFoundException;
 import com.auction.biddingservice.exceptions.InvalidBidException;
 import com.auction.biddingservice.models.Bid;
 import com.auction.biddingservice.repositories.BidRepository;
@@ -66,8 +65,7 @@ public class BidServiceImpl implements BidService {
     log.debug("placeBid - itemId: {}, bidderId: {}, bidAmount: {}", itemId, bidderId, bidAmount);
 
     return executeWithLock(itemId, () -> {
-      Optional<Bid> highestBidOpt = bidRepository.findFirstByItemIdOrderByBidAmountDesc(
-          itemId);
+      Optional<Bid> highestBidOpt = bidRepository.findFirstByItemIdOrderByBidAmountDesc(itemId);
 
       // Perform validation against the previous bid or starting price.
       if (highestBidOpt.isPresent()) {
@@ -120,8 +118,8 @@ public class BidServiceImpl implements BidService {
     // 6. Return mapped page
     log.debug("getBidHistory - itemId: {}", itemId);
     Page<Bid> bids = bidRepository.findByItemId(itemId, pageable);
-    Long highestBidId = bidRepository.findFirstByItemIdOrderByBidAmountDesc(itemId)
-        .orElseThrow(() -> new BidNotFoundException("No bids found for item " + itemId)).getId();
+    Long highestBidId = bidRepository.findFirstByItemIdOrderByBidAmountDesc(itemId).map(Bid::getId)
+        .orElse(null);
 
     return bids.map(bid -> bidMapper.toBidResponse(bid, bid.getId().equals(highestBidId)));
   }
@@ -136,9 +134,9 @@ public class BidServiceImpl implements BidService {
     // 3. If present: return bidMapper.toBidResponseAsHighest(bid)
     // 4. Else: return null
     log.debug("getHighestBid - itemId: {}", itemId);
-    Bid bid = bidRepository.findFirstByItemIdOrderByBidAmountDesc(itemId)
-        .orElseThrow(() -> new BidNotFoundException("No bids found for item " + itemId));
-    return bidMapper.toBidResponseAsHighest(bid);
+    return bidRepository.findFirstByItemIdOrderByBidAmountDesc(itemId)
+        .map(bidMapper::toBidResponseAsHighest)
+        .orElse(null);
   }
 
   @Override
@@ -174,7 +172,13 @@ public class BidServiceImpl implements BidService {
     // 6. Return mapped page
     log.debug("getUserBidsForItem - itemId: {}, bidderId: {}", itemId, bidderId);
     Page<Bid> bids = bidRepository.findByItemIdAndBidderId(itemId, bidderId, pageable);
-    return bids.map(bidMapper::toBidResponseAsHistorical);
+    Long highestBidId = bidRepository.findFirstByItemIdOrderByBidAmountDesc(itemId)
+        .map(Bid::getId)
+        .orElse(null);
+
+    return bids.map(bid ->
+        bidMapper.toBidResponse(bid, bid.getId().equals(highestBidId))
+    );
   }
 
   @Override
@@ -277,6 +281,8 @@ public class BidServiceImpl implements BidService {
         bid.getBidAmount(), bid.getTimestamp());
 
     eventPublisher.publish(event);
+    log.debug("Published BidPlacedEvent - bidId: {}, itemId: {}, eventId: {}",
+        bid.getId(), bid.getItemId(), event.eventId());
   }
 
   /**
