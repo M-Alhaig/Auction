@@ -29,14 +29,14 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 public class RedisConfig {
 
   /**
-   * Configure RedisTemplate for simple key-value operations. Uses String serialization for both
-   * keys and values.
-   * <p>
-   * Design Choice: String-only template for distributed locking. - Lock keys: "lock:item:123" -
-   * Lock values: UUID tokens for safe deletion
+   * Create a RedisTemplate<String, String> configured to use String serialization for keys,
+   * values, hash keys, and hash values.
    *
-   * @param connectionFactory injected by Spring Boot auto-configuration
-   * @return configured RedisTemplate
+   * Intended for simple key-value operations and distributed locking (e.g., lock keys like
+   * "lock:item:{itemId}" with UUID lock tokens).
+   *
+   * @param connectionFactory Redis connection factory provided by Spring Boot auto-configuration
+   * @return the configured RedisTemplate using String serializers for keys, values, hash keys, and hash values
    */
   @Bean
   public RedisTemplate<String, String> redisTemplate(RedisConnectionFactory connectionFactory) {

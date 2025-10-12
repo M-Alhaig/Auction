@@ -12,10 +12,23 @@ package com.auction.biddingservice.exceptions;
  */
 public class EventPublishException extends RuntimeException {
 
+  /**
+   * Creates an EventPublishException with a descriptive message.
+   *
+   * This exception signals that publishing an event ultimately failed (for example, after retry attempts).
+   *
+   * @param message detailed message describing the publish failure
+   */
   public EventPublishException(String message) {
     super(message);
   }
 
+  /**
+   * Constructs a new EventPublishException with the specified detail message and cause.
+   *
+   * @param message descriptive detail message explaining the publishing failure
+   * @param cause the underlying cause of the failure; may be {@code null}
+   */
   public EventPublishException(String message, Throwable cause) {
     super(message, cause);
   }

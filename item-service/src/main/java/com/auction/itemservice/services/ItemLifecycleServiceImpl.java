@@ -35,11 +35,11 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
   // TODO: Inject RedisLockService when Redis is configured
 
   /**
-   * Constructor with self-injection for transaction proxy support.
+   * Create an ItemLifecycleServiceImpl with required dependencies and a lazily injected self reference for proxy-aware internal calls.
    *
-   * @param itemRepository  the repository for item persistence
-   * @param eventPublisher  the publisher for domain events
-   * @param self            self-reference for proxy-aware method calls (breaks circular dependency with @Lazy)
+   * @param itemRepository the repository used to load and persist Item entities
+   * @param eventPublisher the publisher used to emit domain events
+   * @param self           a lazily injected self-reference (proxy) used for internal calls that require proxy-aware behavior (e.g., per-method transactional boundaries)
    */
   public ItemLifecycleServiceImpl(
       ItemRepository itemRepository,
@@ -50,7 +50,16 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
     this.self = self;
   }
 
-  // ==================== STATUS TRANSITIONS ====================
+  /**
+   * Transition the specified item from PENDING to ACTIVE and publish an AuctionStartedEvent.
+   *
+   * Changes the item's status to ACTIVE, persists the update, and emits an event so downstream
+   * systems can react to the auction start.
+   *
+   * @param itemId the identifier of the item to start
+   * @throws ItemNotFoundException if no item exists with the given id
+   * @throws IllegalStateException if the item's current status is not PENDING
+   */
 
   @Override
   public void startAuction(Long itemId) {
@@ -74,6 +83,16 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
     publishAuctionStartedEvent(item);
   }
 
+  /**
+   * End the auction for the specified item.
+   *
+   * Sets the item's status to ENDED, persists the change, logs the final price and end time,
+   * and publishes an AuctionEndedEvent.
+   *
+   * @param itemId the identifier of the item whose auction should be ended
+   * @throws ItemNotFoundException if no item exists with the given id
+   * @throws IllegalStateException if the item is not currently in ACTIVE status
+   */
   @Override
   public void endAuction(Long itemId) {
     log.debug("Ending auction for item: {}", itemId);
@@ -96,7 +115,14 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
     publishAuctionEndedEvent(item);
   }
 
-  // ==================== BATCH OPERATIONS (SCHEDULER) ====================
+  /**
+   * Start all pending auctions whose configured start time is now or in the past.
+   *
+   * Processes each eligible item and attempts to transition it to the active state; failures
+   * for individual items are logged and do not stop the batch from continuing.
+   *
+   * @return the number of auctions that were successfully started
+   */
 
   @Override
   public int batchStartPendingAuctions() {
@@ -131,6 +157,14 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
     return successCount;
   }
 
+  /**
+   * Processes active auctions whose end time has passed and attempts to end each auction.
+   *
+   * Attempts to end every expired active auction, logs failures while continuing processing,
+   * and records per-auction success and failure counts.
+   *
+   * @return the number of auctions successfully ended
+   */
   @Override
   public int batchEndExpiredAuctions() {
     List<Item> activeItems = self.findActiveItemsToEnd();
@@ -163,7 +197,18 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
     return successCount;
   }
 
-  // ==================== PRICE UPDATES (CONCURRENCY CONTROL) ====================
+  /**
+   * Update an item's current price while preventing concurrent bid races using a distributed lock.
+   *
+   * <p>This method is a placeholder and is not implemented: it currently throws
+   * {@link UnsupportedOperationException}. When implemented it will acquire a Redis-based
+   * distributed lock for the item, validate that `newPrice` is greater than the current price,
+   * persist the change, and release the lock to avoid race conditions from concurrent bids.
+   *
+   * @param itemId   the id of the item whose current price should be updated
+   * @param newPrice the candidate new current price; intended to be greater than the item's current price
+   * @throws UnsupportedOperationException always thrown in the current temporary implementation
+   */
 
   @Override
   public void updateCurrentPriceWithLock(Long itemId, BigDecimal newPrice) {
@@ -192,7 +237,12 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
         "Not implemented yet - requires Redis distributed locking");
   }
 
-  // ==================== VALIDATION FOR BIDDING SERVICE ====================
+  /**
+   * Check whether the specified item is currently active.
+   *
+   * @param itemId the database identifier of the item to check
+   * @return `true` if the item is active, `false` otherwise
+   */
 
   @Override
   @Transactional(readOnly = true)
@@ -201,7 +251,11 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
     return itemRepository.isItemActiveById(itemId);
   }
 
-  // ==================== INTERNAL QUERY METHODS ====================
+  /**
+   * Retrieve items with status PENDING whose start time is now or earlier.
+   *
+   * @return a list of Item entities in PENDING status with startTime <= now; an empty list if none are found
+   */
 
   @Override
   @Transactional(readOnly = true)
@@ -211,6 +265,11 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
         LocalDateTime.now());
   }
 
+  /**
+   * Retrieve active items whose end time has passed.
+   *
+   * @return a list of items in `ACTIVE` status with `endTime` before the current time; empty list if none
+   */
   @Override
   @Transactional(readOnly = true)
   public List<Item> findActiveItemsToEnd() {
@@ -221,8 +280,9 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
   // ==================== PRIVATE HELPER METHODS ====================
 
   /**
-   * Publish AuctionStartedEvent to message queue. Consumed by: Bidding Service (enable bidding),
-   * Notification Service (notify subscribers).
+   * Publish an AuctionStartedEvent for the given item to notify downstream services.
+   *
+   * @param item the item whose auction has started; its id, seller, title, start time, and starting price are included in the event payload
    */
   private void publishAuctionStartedEvent(Item item) {
     AuctionStartedEvent event = AuctionStartedEvent.create(
@@ -240,11 +300,12 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
   }
 
   /**
-   * Publish AuctionEndedEvent to message queue. Consumed by: Bidding Service (stop accepting bids),
-   * Notification Service (notify winner/seller).
-   * <p>
-   * Note: winnerId is currently null since we don't have Bidding Service integrated yet. Once
-   * integrated, we'll query Bidding Service API to get the highest bidder's ID.
+   * Publish an AuctionEndedEvent for the given item to notify downstream services.
+   *
+   * The published event carries the item's id, seller id, title, end time, and final price.
+   * The `winnerId` field is currently set to `null` until the bidding service is integrated.
+   *
+   * @param item the item whose auction has ended; its end time and final price will be included in the event
    */
   private void publishAuctionEndedEvent(Item item) {
     AuctionEndedEvent event = AuctionEndedEvent.create(

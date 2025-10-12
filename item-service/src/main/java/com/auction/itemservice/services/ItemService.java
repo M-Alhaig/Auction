@@ -17,28 +17,30 @@ public interface ItemService {
   // ==================== CRUD OPERATIONS ====================
 
   /**
-   * Create a new auction item. Sets initial status to PENDING and currentPrice = startingPrice.
-   *
-   * @param request the item creation request with all required fields
-   * @return the created item as ItemResponse with generated ID
-   * @throws IllegalArgumentException if category IDs are invalid or don't exist
-   */
+ * Create a new auction item and initialize its lifecycle fields.
+ *
+ * <p>The created item will have status set to PENDING and currentPrice set to startingPrice.</p>
+ *
+ * @param request  the item creation request containing title, description, startingPrice, category IDs, end time, and other item data
+ * @param sellerId the UUID of the seller creating the item
+ * @return the created item as an ItemResponse with a generated identifier
+ * @throws IllegalArgumentException if any provided category ID is invalid or does not exist
+ */
   ItemResponse createItem(CreateItemRequest request, UUID sellerId);
 
   /**
-   * Update an existing auction item. Only items with PENDING status can be updated. Supports
-   * partial updates (null fields are ignored).
-   *
-   * @param itemId              the ID of the item to update
-   * @param request             the update request with new values (null fields ignored)
-   * @param authenticatedUserId the ID of the authenticated user from JWT
-   * @return the updated item as ItemResponse
-   * @throws com.auction.itemservice.exceptions.ItemNotFoundException if the item doesn't exist
-   * @throws com.auction.itemservice.exceptions.UnauthorizedException if the user doesn't own the
-   *                                                                   item
-   * @throws IllegalStateException                                     if item status is not
-   *                                                                   PENDING
-   */
+ * Update an existing auction item by applying only the provided fields.
+ *
+ * Only items with status PENDING can be updated; null fields in the request are ignored.
+ *
+ * @param itemId              the ID of the item to update
+ * @param request             the update request containing fields to change (null fields ignored)
+ * @param authenticatedUserId the ID of the authenticated user performing the update
+ * @return the updated item as an ItemResponse
+ * @throws com.auction.itemservice.exceptions.ItemNotFoundException if the item doesn't exist
+ * @throws com.auction.itemservice.exceptions.UnauthorizedException if the authenticated user does not own the item
+ * @throws IllegalStateException                                     if the item status is not PENDING
+ */
   ItemResponse updateItem(Long itemId, UpdateItemRequest request, UUID authenticatedUserId);
 
   /**
@@ -74,42 +76,38 @@ public interface ItemService {
   Page<ItemResponse> getAllItems(Pageable pageable);
 
   /**
-   * Get items filtered by status with pagination. Useful for showing "Active Auctions", "Sold
-   * Items", etc.
-   *
-   * @param status   the item status to filter by (PENDING, ACTIVE, ENDED)
-   * @param pageable pagination and sorting parameters
-   * @return page of items with the specified status
-   */
+ * Retrieve items that match the given status, returned in a paginated form.
+ *
+ * @param status   the item status to filter by (e.g., PENDING, ACTIVE, ENDED)
+ * @param pageable pagination and sorting parameters
+ * @return a page of ItemResponse objects with the specified status
+ */
   Page<ItemResponse> getItemsByStatus(ItemStatus status, Pageable pageable);
 
   /**
-   * Get all items created by a specific seller with pagination. Used for a seller dashboard to view
-   * their listings.
-   *
-   * @param sellerId the UUID of the seller
-   * @param pageable pagination and sorting parameters
-   * @return page of items belonging to the seller
-   */
+ * Retrieve items created by the specified seller with pagination.
+ *
+ * @param sellerId the UUID of the seller whose items to retrieve
+ * @param pageable pagination and sorting parameters
+ * @return a page of ItemResponse objects for items created by the specified seller
+ */
   Page<ItemResponse> getItemsBySeller(UUID sellerId, Pageable pageable);
 
   /**
-   * Get items filtered by both seller and status with pagination. Allows sellers to filter their
-   * own items (e.g., "show my active auctions").
-   *
-   * @param sellerId the UUID of the seller
-   * @param status   the item status to filter by
-   * @param pageable pagination and sorting parameters
-   * @return page of items matching both criteria
-   */
+ * Retrieve items created by the given seller that have the specified status, using pagination.
+ *
+ * @param sellerId the UUID of the seller whose items to retrieve
+ * @param status   the item status to filter by
+ * @param pageable pagination and sorting parameters
+ * @return a page of ItemResponse objects for items matching the seller and status, including pagination metadata
+ */
   Page<ItemResponse> getItemsBySellerAndStatus(UUID sellerId, ItemStatus status, Pageable pageable);
 
   /**
-   * Get active auctions ordered by end time (ending soonest first). Used for homepage "Ending Soon"
-   * section.
-   *
-   * @param pageable pagination and sorting parameters
-   * @return page of active items sorted by end time ascending
-   */
+ * Retrieve active auctions ordered by ascending end time for the "Ending Soon" view.
+ *
+ * @param pageable pagination and sorting parameters
+ * @return a page of active items (`ItemResponse`) sorted by end time ascending
+ */
   Page<ItemResponse> getActiveAuctionsEndingSoon(Pageable pageable);
 }

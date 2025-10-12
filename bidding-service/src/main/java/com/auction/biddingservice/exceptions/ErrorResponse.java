@@ -25,14 +25,29 @@ public record ErrorResponse(
 ) {
 
   /**
-   * Constructor for simple errors without field-level details.
+   * Create an ErrorResponse for an error without field-level validation details.
+   *
+   * The timestamp is set to the current time and fieldErrors will be null (omitted from JSON).
+   *
+   * @param status  the HTTP status code
+   * @param error   the HTTP status reason phrase
+   * @param message a human-readable error message
+   * @param path    the request path where the error occurred
    */
   public ErrorResponse(int status, String error, String message, String path) {
     this(status, error, message, path, LocalDateTime.now(), null);
   }
 
   /**
-   * Constructor for validation errors with field-level details.
+   * Create an ErrorResponse for validation failures that includes field-level error messages.
+   *
+   * The created instance uses the current time as the `timestamp`.
+   *
+   * @param status      the HTTP status code
+   * @param error       the HTTP status reason phrase
+   * @param message     a human-readable error message
+   * @param path        the request path where the error occurred
+   * @param fieldErrors a map of field names to validation error messages; included in JSON only if non-null
    */
   public ErrorResponse(int status, String error, String message, String path,
       Map<String, String> fieldErrors) {

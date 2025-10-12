@@ -27,28 +27,17 @@ import org.springframework.data.domain.Pageable;
 public interface BidService {
 
   /**
-   * Places a new bid on an auction item with distributed locking.
-   *
-   * <p>Process Flow:
-   * <ol>
-   *   <li>Acquire Redis lock: "lock:item:{itemId}"</li>
-   *   <li>Validate bid (auction active, amount > current highest, not own auction)</li>
-   *   <li>Save bid to database</li>
-   *   <li>Publish BidPlacedEvent (Item Service updates currentPrice)</li>
-   *   <li>Publish UserOutbidEvent if someone was outbid</li>
-   *   <li>Release Redis lock</li>
-   * </ol>
-   *
-   * <p>Concurrency: Uses Redis SETNX with 5-second TTL to prevent race conditions. If lock cannot
-   * be acquired, throws BidLockException (client should retry after ~100ms).
-   *
-   * @param request  the bid details (itemId, bidAmount)
-   * @param bidderId the authenticated user's UUID (from JWT or X-Auth-Id header)
-   * @return the created bid with isCurrentHighest = true
-   * @throws com.auction.biddingservice.exceptions.InvalidBidException if bid violates business rules
-   * @throws com.auction.biddingservice.exceptions.BidLockException if Redis lock cannot be acquired
-   * @throws com.auction.biddingservice.exceptions.AuctionNotFoundException if item doesn't exist
-   */
+ * Place a new bid on an auction item, making it the current highest bid when successful.
+ *
+ * <p>Uses distributed locking and publishes domain events so other services can react to state changes.
+ *
+ * @param request  the bid details, including the target itemId and bidAmount
+ * @param bidderId the UUID of the authenticated bidder
+ * @return the created BidResponse with `isCurrentHighest` set to `true`
+ * @throws com.auction.biddingservice.exceptions.InvalidBidException if the bid violates business rules (e.g., auction inactive, amount not higher than current, bidder is item owner)
+ * @throws com.auction.biddingservice.exceptions.BidLockException if a distributed lock cannot be acquired to perform the placement atomically
+ * @throws com.auction.biddingservice.exceptions.AuctionNotFoundException if the specified item does not exist
+ */
   BidResponse placeBid(PlaceBidRequest request, UUID bidderId);
 
   /**
@@ -81,15 +70,15 @@ public interface BidService {
   Page<BidResponse> getUserBids(UUID bidderId, Pageable pageable);
 
   /**
-   * Retrieves paginated bids placed by a specific user on a specific item.
-   *
-   * <p>Sets {@code isCurrentHighest} flag accurately for this specific item.
-   *
-   * @param itemId   the item ID to query
-   * @param bidderId the user's UUID
-   * @param pageable pagination parameters (page, size, sort)
-   * @return page of bids (typically small, most users bid 1-3 times per item)
-   */
+ * Retrieves a paginated list of bids a specific user placed on a specific item.
+ *
+ * <p>Each returned BidResponse has its {@code isCurrentHighest} flag set accurately for this item.
+ *
+ * @param itemId   the item ID to query
+ * @param bidderId the user's UUID
+ * @param pageable pagination parameters
+ * @return a page of BidResponse objects for the given user and item with {@code isCurrentHighest} set correctly
+ */
   Page<BidResponse> getUserBidsForItem(Long itemId, UUID bidderId, Pageable pageable);
 
   /**
@@ -101,12 +90,10 @@ public interface BidService {
   long countBids(Long itemId);
 
   /**
-   * Retrieves all distinct item IDs that a user has bid on.
-   *
-   * <p>Useful for "My Active Auctions" UI feature.
-   *
-   * @param bidderId the user's UUID
-   * @return list of item IDs (may be empty)
-   */
+ * Retrieves the distinct item IDs a user has placed bids on.
+ *
+ * @param bidderId the UUID of the bidder
+ * @return a list of distinct item IDs the user has bid on; may be empty
+ */
   List<Long> getItemsUserHasBidOn(UUID bidderId);
 }

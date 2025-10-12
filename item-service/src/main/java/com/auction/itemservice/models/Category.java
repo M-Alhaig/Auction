@@ -21,6 +21,13 @@ public class Category {
   @Column(unique = true, nullable = false, length = 100)
   private String name;
 
+  /**
+   * Determine equality by entity identity, resolving Hibernate proxies to their persistent class.
+   *
+   * @param o the object to compare with this Category
+   * @return `true` if both objects are of the same persistent class (proxy-resolved) and this entity's `id`
+   *         is non-null and equal to the other object's `id`, `false` otherwise
+   */
   @Override
   public final boolean equals(Object o) {
     if (this == o) {
@@ -44,6 +51,11 @@ public class Category {
     return false;
   }
 
+  /**
+   * Compute the hash code aligned with the entity's effective persistent class, handling Hibernate proxies.
+   *
+   * @return the hash code of the persistent class when this instance is a HibernateProxy, otherwise the hash code of this instance's runtime class
+   */
   @Override
   public final int hashCode() {
     return this instanceof HibernateProxy hibernateProxy ? hibernateProxy.getHibernateLazyInitializer()

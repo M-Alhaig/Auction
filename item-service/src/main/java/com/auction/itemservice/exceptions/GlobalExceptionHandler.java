@@ -25,7 +25,9 @@ public class GlobalExceptionHandler {
   public static final String BAD_REQUEST = "Bad Request";
 
   /**
-   * Handle ItemNotFoundException. Returns 404 NOT FOUND.
+   * Convert an ItemNotFoundException into an HTTP 404 Not Found response.
+   *
+   * @return ResponseEntity containing an ErrorResponse with HTTP status 404, the exception message, and the request URI
    */
   @ExceptionHandler(ItemNotFoundException.class)
   public ResponseEntity<ErrorResponse> handleItemNotFound(
@@ -44,7 +46,12 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Handle UnauthorizedException. Returns 403 FORBIDDEN.
+   * Handle UnauthorizedException by returning an ErrorResponse for HTTP 403 Forbidden.
+   *
+   * @param ex the triggered UnauthorizedException
+   * @param request the incoming request whose URI is included in the error response
+   * @return ResponseEntity containing an ErrorResponse with HTTP status 403 (Forbidden),
+   *         the exception message, and the request URI
    */
   @ExceptionHandler(UnauthorizedException.class)
   public ResponseEntity<ErrorResponse> handleUnauthorized(
@@ -64,7 +71,10 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Handle ConcurrentBidException. Returns 409 CONFLICT.
+   * Convert a ConcurrentBidException into a 409 Conflict HTTP response.
+   *
+   * @return a ResponseEntity containing an ErrorResponse with HTTP status 409, error set to "Conflict",
+   *         the exception message, and the originating request URI
    */
   @ExceptionHandler(ConcurrentBidException.class)
   public ResponseEntity<ErrorResponse> handleConcurrentBid(
@@ -84,8 +94,14 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Handle IllegalStateException (e.g., trying to update non-PENDING item). Returns 400 BAD
-   * REQUEST.
+   * Map an IllegalStateException to a 400 Bad Request ErrorResponse.
+   *
+   * <p>Common trigger: attempting an operation that is not allowed in the current state
+   * (for example, updating an item that is not in the PENDING state).
+   *
+   * @param ex the IllegalStateException that was thrown
+   * @param request the incoming HTTP request; its URI is included in the ErrorResponse
+   * @return a ResponseEntity containing an ErrorResponse with HTTP status 400 and the exception message
    */
   @ExceptionHandler(IllegalStateException.class)
   public ResponseEntity<ErrorResponse> handleIllegalState(
@@ -104,8 +120,11 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Handle IllegalArgumentException (e.g., invalid categories, business rule violations). Returns
-   * 400 BAD REQUEST.
+   * Converts an IllegalArgumentException into a 400 Bad Request response.
+   *
+   * @param ex the IllegalArgumentException whose message is used as the error message
+   * @param request the HTTP request used to populate the request URI in the response
+   * @return a ResponseEntity containing an ErrorResponse with HTTP status 400, error label "Bad Request", the exception message, and the request URI
    */
   @ExceptionHandler(IllegalArgumentException.class)
   public ResponseEntity<ErrorResponse> handleIllegalArgument(
@@ -124,8 +143,13 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Handle validation errors from @Valid annotations. Returns 400 BAD REQUEST with field-level
-   * error details.
+   * Convert a MethodArgumentNotValidException into a 400 Bad Request ErrorResponse containing field-level validation messages.
+   *
+   * Populates the response's fieldErrors with a map of field names to their validation messages and includes the request URI.
+   *
+   * @param ex the validation exception containing binding results with field errors
+   * @param request the HTTP request used to extract the request URI for the response
+   * @return an ErrorResponse with status 400, error "Validation Failed", a summary message, the request URI, and a map of field-level errors
    */
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public ResponseEntity<ErrorResponse> handleValidationErrors(
@@ -153,9 +177,16 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Handle JSON deserialization errors (e.g., compact constructor validation in records). This
-   * catches exceptions thrown during Jackson deserialization, including those from
-   * CreateItemRequest's compact constructor validation. Returns 400 BAD REQUEST.
+   * Convert JSON deserialization failures into a standardized 400 Bad Request ErrorResponse.
+   *
+   * Extracts a user-facing message from the exception cause chain when available (for example,
+   * validation errors propagated as IllegalArgumentException) and returns an ErrorResponse
+   * containing the HTTP status, error label, message, and request URI.
+   *
+   * @param ex      the HttpMessageNotReadableException thrown during request body deserialization
+   * @param request the incoming HTTP request; used to populate the request URI in the response
+   * @return an ErrorResponse with status 400, error label "Bad Request", a descriptive message,
+   *         and the request URI
    */
   @ExceptionHandler(HttpMessageNotReadableException.class)
   public ResponseEntity<ErrorResponse> handleMessageNotReadable(
@@ -187,10 +218,12 @@ public class GlobalExceptionHandler {
   }
 
   /**
-   * Handle all other unexpected exceptions. Returns 500 INTERNAL SERVER ERROR.
-   * <p>
-   * CRITICAL: This catches all unexpected errors. Always logs with full stack trace for debugging.
-   * Monitor these logs closely - they indicate bugs or infrastructure issues.
+   * Handles uncaught exceptions by converting them into a standardized 500 Internal Server Error response.
+   *
+   * @param ex the unexpected exception that was thrown
+   * @param request the HTTP request whose URI will be included in the error response
+   * @return a ResponseEntity containing an ErrorResponse with HTTP status 500, error "Internal Server Error",
+   *         a generic message indicating an unexpected error occurred, and the request URI
    */
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ErrorResponse> handleGeneralException(

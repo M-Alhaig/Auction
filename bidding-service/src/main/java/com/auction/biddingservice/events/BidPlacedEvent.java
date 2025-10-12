@@ -20,8 +20,15 @@ public record BidPlacedEvent(String eventId, String eventType, LocalDateTime tim
                              BidPlacedData data) {
 
   /**
-   * Factory method to create a new BidPlacedEvent with auto-generated metadata.
+   * Create a BidPlacedEvent containing the provided bid details.
+   *
+   * @param itemId      the identifier of the auction item
+   * @param bidderId    the identifier of the bidder placing the bid
+   * @param bidAmount   the monetary amount of the bid
+   * @param bidTimestamp the time when the bid was placed (may differ from the event publish timestamp)
+   * @return            a BidPlacedEvent whose eventId is generated and whose timestamp is set to the current time; its data payload contains the provided bid details
    */
+  // TODO: zone aware timestamp?
   public static BidPlacedEvent create(Long itemId, UUID bidderId, BigDecimal bidAmount,
       LocalDateTime bidTimestamp) {
     return new BidPlacedEvent(UUID.randomUUID().toString(), "BidPlacedEvent", LocalDateTime.now(),

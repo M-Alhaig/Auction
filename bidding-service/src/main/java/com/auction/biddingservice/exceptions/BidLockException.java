@@ -13,10 +13,21 @@ package com.auction.biddingservice.exceptions;
  */
 public class BidLockException extends RuntimeException {
 
+  /**
+   * Create a BidLockException with a detail message describing the lock acquisition failure.
+   *
+   * @param message human-readable description of why the Redis distributed lock could not be acquired
+   */
   public BidLockException(String message) {
     super(message);
   }
 
+  /**
+   * Create a new BidLockException with the specified detail message and cause.
+   *
+   * @param message detail message describing the lock acquisition failure
+   * @param cause   the underlying cause of this exception
+   */
   public BidLockException(String message, Throwable cause) {
     super(message, cause);
   }

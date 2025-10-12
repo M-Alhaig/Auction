@@ -19,11 +19,11 @@ import org.springframework.stereotype.Component;
 public class BidMapper {
 
   /**
-   * Convert Bid entity to BidResponse DTO.
+   * Convert a Bid entity into a BidResponse DTO.
    *
-   * @param bid              The bid entity from database
-   * @param isCurrentHighest Whether this bid is currently the highest for the item
-   * @return BidResponse DTO for API response
+   * @param bid the Bid entity to convert; may be null
+   * @param isCurrentHighest whether this bid is currently the highest for its item
+   * @return the corresponding BidResponse, or null if {@code bid} is null
    */
   public BidResponse toBidResponse(Bid bid, boolean isCurrentHighest) {
     if (bid == null) {
@@ -41,16 +41,20 @@ public class BidMapper {
   }
 
   /**
-   * Convenience method for converting a bid that is definitely the current highest. Used when we
-   * know for certain this bid is the winner (e.g., just placed successfully).
+   * Convert a Bid entity into a BidResponse marked as the current highest bid.
+   *
+   * @param bid the Bid entity to convert; may be null
+   * @return the corresponding BidResponse with the current-highest flag set, or `null` if {@code bid} is null
    */
   public BidResponse toBidResponseAsHighest(Bid bid) {
     return toBidResponse(bid, true);
   }
 
   /**
-   * Convenience method for converting a bid that is NOT the current highest. Used for historical
-   * bids in bid history queries.
+   * Convert a Bid entity to a BidResponse representing a historical (non-highest) bid.
+   *
+   * @param bid the Bid to convert; may be null
+   * @return the corresponding BidResponse with isCurrentHighest set to `false`, or `null` if {@code bid} is null
    */
   public BidResponse toBidResponseAsHistorical(Bid bid) {
     return toBidResponse(bid, false);

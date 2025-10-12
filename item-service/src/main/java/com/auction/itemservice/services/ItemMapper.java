@@ -44,10 +44,10 @@ public class ItemMapper {
   }
 
   /**
-   * Convert Category entity to CategoryResponse DTO.
+   * Create a response object representing the given category.
    *
-   * @param category the category entity (must not be null)
-   * @return the category response DTO
+   * @param category the category entity; must not be null
+   * @return the response containing the category's id and name
    */
   public CategoryResponse toCategoryResponse(Category category) {
     return new CategoryResponse(
@@ -57,10 +57,10 @@ public class ItemMapper {
   }
 
   /**
-   * Convert a set of Category entities to CategoryResponse DTOs.
+   * Converts a set of Category entities to a set of CategoryResponse DTOs.
    *
-   * @param categories set of category entities
-   * @return set of category response DTOs (preserves Set semantics)
+   * @param categories the categories to convert; may be null or empty
+   * @return a set of CategoryResponse DTOs, or an empty set if {@code categories} is null or empty
    */
   public Set<CategoryResponse> toCategoryResponses(Set<Category> categories) {
     if (categories == null || categories.isEmpty()) {
@@ -72,13 +72,16 @@ public class ItemMapper {
   }
 
   /**
-   * Convert CreateItemRequest DTO to Item entity. Sets initial values: status = PENDING,
-   * currentPrice = startingPrice. Does NOT save to database - just creates the entity.
+   * Create a new Item entity from a CreateItemRequest, seller ID, and optional categories.
    *
-   * @param request    the creation request DTO
-   * @param categories the resolved category entities (already validated)
-   * @param sellerId   the seller ID from JWT
-   * @return the new item entity (not persisted, ID is null)
+   * The returned Item is initialized with status set to ItemStatus.PENDING and currentPrice
+   * set equal to the provided startingPrice. Categories are assigned only if a non-empty set
+   * is provided; the entity is not persisted (ID remains null).
+   *
+   * @param request    the creation request DTO containing item fields
+   * @param categories resolved Category entities to assign to the item; may be null or empty
+   * @param sellerId   the UUID of the seller (typically extracted from JWT)
+   * @return           a new Item entity populated from the request (not persisted, ID is null)
    */
   public Item toEntity(CreateItemRequest request, Set<Category> categories, UUID sellerId) {
     Item item = new Item();

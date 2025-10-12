@@ -9,10 +9,22 @@ package com.auction.biddingservice.exceptions;
  */
 public class BidNotFoundException extends RuntimeException {
 
+  /**
+   * Creates an exception indicating a bid with the given ID was not found.
+   *
+   * <p>The exception message will be "Bid with ID {bidId} not found".</p>
+   *
+   * @param bidId the ID of the bid that could not be found
+   */
   public BidNotFoundException(Long bidId) {
     super("Bid with ID " + bidId + " not found");
   }
 
+  /**
+   * Create a BidNotFoundException with a custom detail message.
+   *
+   * @param message the detail message describing the not-found condition
+   */
   public BidNotFoundException(String message) {
     super(message);
   }

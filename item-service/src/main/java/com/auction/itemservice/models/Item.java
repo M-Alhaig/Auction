@@ -70,6 +70,12 @@ public class Item {
   @JoinTable(name = "item_categories", joinColumns = @JoinColumn(name = "item_id"), inverseJoinColumns = @JoinColumn(name = "category_id"))
   private Set<Category> categories = new LinkedHashSet<>();
 
+  /**
+   * Determine whether another object represents the same persistent Item, accounting for Hibernate proxies and entity identity.
+   *
+   * @param o the object to compare with this Item (may be a Hibernate proxy)
+   * @return `true` if both objects are the same instance or have the same persistent class and a non-null, equal id; `false` otherwise.
+   */
   @Override
   public final boolean equals(Object o) {
     if (this == o) {
@@ -93,6 +99,12 @@ public class Item {
     return false;
   }
 
+  /**
+   * Compute a class-based hash code that accounts for Hibernate proxies.
+   *
+   * @return the hash code of the underlying persistent class when this instance is a Hibernate proxy,
+   *         otherwise the hash code of this instance's runtime class
+   */
   @Override
   public final int hashCode() {
     return this instanceof HibernateProxy hibernateProxy ? hibernateProxy.getHibernateLazyInitializer()
