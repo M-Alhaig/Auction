@@ -58,6 +58,15 @@ public class BidServiceImpl implements BidService {
   private static final Duration LOCK_TIMEOUT = Duration.ofSeconds(5);
   private static final String LOCK_KEY_PREFIX = "lock:item:";
 
+  /**
+   * Processes a bid for an item: validates against the current highest bid, persists the new bid, and publishes related events.
+   *
+   * @param request   contains the target `itemId` and the `bidAmount` for the new bid
+   * @param bidderId  identifier of the user placing the bid
+   * @return the newly persisted bid represented as the current highest `BidResponse`
+   * @throws InvalidBidException if the bid amount is not greater than the current highest bid
+   * @throws BidLockException if a distributed lock for the item cannot be acquired
+   */
   @Override
   public BidResponse placeBid(PlaceBidRequest request, UUID bidderId) {
     Long itemId = request.itemId();
@@ -103,6 +112,13 @@ public class BidServiceImpl implements BidService {
     });
   }
 
+  /**
+   * Retrieve paginated bid history for an item, marking which entry is the current highest bid.
+   *
+   * @param itemId  the item's identifier
+   * @param pageable  pagination and sorting information
+   * @return a page of BidResponse objects for the item; each response has `isCurrentHighest` set to `true` for the current highest bid and `false` otherwise
+   */
   @Override
   @Transactional(readOnly = true)
   public Page<BidResponse> getBidHistory(Long itemId, Pageable pageable) {
@@ -124,6 +140,12 @@ public class BidServiceImpl implements BidService {
     return bids.map(bid -> bidMapper.toBidResponse(bid, bid.getId().equals(highestBidId)));
   }
 
+  /**
+   * Retrieve the current highest bid for the given item.
+   *
+   * @param itemId the identifier of the item to query
+   * @return the highest bid for the item as a `BidResponse`, or `null` if no bids exist
+   */
   @Override
   @Transactional(readOnly = true)
   public BidResponse getHighestBid(Long itemId) {
@@ -139,6 +161,16 @@ public class BidServiceImpl implements BidService {
         .orElse(null);
   }
 
+  /**
+   * Retrieve a bidder's paginated bid history.
+   *
+   * <p>Returns historical bid entries for the given bidder; each entry is a historical view and
+   * has `isCurrentHighest` set to `false` (this method does not reflect current standing).
+   *
+   * @param bidderId the UUID of the bidder whose bids to fetch
+   * @param pageable pagination and sorting information
+   * @return a page of `BidResponse` objects representing the bidder's historical bids
+   */
   @Override
   @Transactional(readOnly = true)
   public Page<BidResponse> getUserBids(UUID bidderId, Pageable pageable) {
@@ -157,6 +189,14 @@ public class BidServiceImpl implements BidService {
     return bids.map(bidMapper::toBidResponseAsHistorical);
   }
 
+  /**
+   * Retrieve a bidder's paginated bids for a specific item, marking which bid is currently the highest.
+   *
+   * @param itemId   the identifier of the item
+   * @param bidderId the identifier of the bidder whose bids to retrieve
+   * @param pageable pagination and sorting information
+   * @return a page of BidResponse objects for the given item and bidder; each entry has `isCurrentHighest` set to `true` when that bid is the current highest for the item, `false` otherwise
+   */
   @Override
   @Transactional(readOnly = true)
   public Page<BidResponse> getUserBidsForItem(Long itemId, UUID bidderId, Pageable pageable) {
@@ -181,6 +221,11 @@ public class BidServiceImpl implements BidService {
     );
   }
 
+  /**
+   * Count the number of bids placed on the specified item.
+   *
+   * @return the number of bids for the given item ID
+   */
   @Override
   @Transactional(readOnly = true)
   public long countBids(Long itemId) {
@@ -195,6 +240,12 @@ public class BidServiceImpl implements BidService {
     return count;
   }
 
+  /**
+   * Retrieve the distinct item IDs on which the specified bidder has placed bids.
+   *
+   * @param bidderId the UUID of the bidder
+   * @return a list of distinct item IDs the bidder has placed bids on; empty if none
+   */
   @Override
   @Transactional(readOnly = true)
   public List<Long> getItemsUserHasBidOn(UUID bidderId) {
@@ -212,21 +263,17 @@ public class BidServiceImpl implements BidService {
   // ==================== REDIS LOCK HELPER ====================
 
   /**
-   * Executes a bidding operation within a Redis distributed lock.
+   * Execute an operation while holding a Redis-backed distributed lock for the given item.
    *
-   * <p>Lock Behavior:
-   * <ul>
-   *   <li>Acquires lock with key "lock:item:{itemId}" and random UUID token</li>
-   *   <li>Lock expires after 5 seconds (prevents deadlock if service crashes)</li>
-   *   <li>If lock cannot be acquired → throws BidLockException</li>
-   *   <li>Finally block ensures safe lock release (checks token matches)</li>
-   * </ul>
+   * <p>The method acquires a per-item lock (key "lock:item:{itemId}") with a 5-second expiration,
+   * runs the provided operation if the lock is obtained, and releases the lock only if the
+   * release token matches the one used to acquire it.
    *
-   * @param itemId    the item ID to lock
-   * @param operation the operation to execute while holding the lock
-   * @param <T>       the return type of the operation
+   * @param itemId    the ID of the item to lock
+   * @param operation the operation to execute while the lock is held
+   * @param <T>       the operation's return type
    * @return the result of the operation
-   * @throws BidLockException if lock cannot be acquired
+   * @throws BidLockException if the lock cannot be acquired
    */
   private <T> T executeWithLock(Long itemId, Supplier<T> operation) {
     String lockKey = LOCK_KEY_PREFIX + itemId;
@@ -263,13 +310,13 @@ public class BidServiceImpl implements BidService {
   // ==================== EVENT PUBLISHING HELPERS ====================
 
   /**
-   * Publishes BidPlacedEvent to message queue.
+   * Publish a BidPlacedEvent for the given bid.
    *
-   * <p>Consumed by:
-   * <ul>
-   *   <li>Item Service: Updates currentPrice for the auction</li>
-   *   <li>Notification Service: Pushes real-time bid update to WebSocket clients</li>
-   * </ul>
+   * <p>Creates and publishes an event that contains the bid's item ID, bidder ID, amount, and timestamp
+   * so other services can react (for example: Item Service to update the current price and
+   * Notification Service to push real-time updates).
+   *
+   * @param bid the persisted bid to announce
    */
   private void publishBidPlacedEvent(Bid bid) {
     //
@@ -286,12 +333,13 @@ public class BidServiceImpl implements BidService {
   }
 
   /**
-   * Publishes UserOutbidEvent to message queue when a user is no longer the highest bidder.
+   * Publish an event notifying that a user has been outbid on an item.
    *
-   * <p>Consumed by:
-   * <ul>
-   *   <li>Notification Service: Sends WebSocket notification and/or email to outbid user</li>
-   * </ul>
+   * Creates and publishes a UserOutbidEvent containing the item ID, the previous highest
+   * bidder's ID, the new bidder's ID, and the new bid amount.
+   *
+   * @param previousHighestBid the bid that was previously the highest for the item
+   * @param newBid the bid that became the new highest for the item
    */
   private void publishUserOutbidEvent(Bid previousHighestBid, Bid newBid) {
     //

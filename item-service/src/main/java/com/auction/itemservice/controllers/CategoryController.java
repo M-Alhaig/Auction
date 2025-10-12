@@ -27,9 +27,9 @@ public class CategoryController {
   private final ItemMapper itemMapper;
 
   /**
-   * Get all categories. Used by frontend to populate category selection dropdowns.
+   * Retrieve all auction item categories.
    *
-   * @return list of all categories
+   * @return the list of all CategoryResponse objects
    */
   @GetMapping
   public ResponseEntity<List<CategoryResponse>> getAllCategories() {
@@ -45,10 +45,10 @@ public class CategoryController {
   }
 
   /**
-   * Get a single category by ID.
+   * Retrieve the category identified by the given ID.
    *
-   * @param id the category ID
-   * @return the category
+   * @param id the identifier of the category to retrieve
+   * @return a ResponseEntity containing the CategoryResponse with HTTP 200 if found, or HTTP 404 if not found
    */
   @GetMapping("/{id}")
   public ResponseEntity<CategoryResponse> getCategoryById(@PathVariable Integer id) {

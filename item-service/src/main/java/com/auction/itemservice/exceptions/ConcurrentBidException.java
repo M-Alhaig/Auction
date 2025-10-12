@@ -6,6 +6,11 @@ package com.auction.itemservice.exceptions;
  */
 public class ConcurrentBidException extends RuntimeException {
 
+  /**
+   * Constructs a ConcurrentBidException with the specified detail message.
+   *
+   * @param message detail message describing the concurrent modification that caused the price update to fail; may include guidance that the client should retry
+   */
   public ConcurrentBidException(String message) {
     super(message);
   }

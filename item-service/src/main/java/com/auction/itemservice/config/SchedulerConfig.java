@@ -22,12 +22,10 @@ import javax.sql.DataSource;
 public class SchedulerConfig {
 
   /**
-   * Creates a JDBC-based lock provider for ShedLock.
-   * <p>
-   * Uses the 'shedlock' table in PostgreSQL to coordinate locks across instances.
+   * Provides a JDBC-based LockProvider for ShedLock to coordinate scheduled-task locks across instances.
    *
-   * @param dataSource the configured DataSource
-   * @return LockProvider for distributed locking
+   * @param dataSource the DataSource used to access the application's database
+   * @return the LockProvider that uses the application's database for distributed locking
    */
   @Bean
   public LockProvider lockProvider(DataSource dataSource) {

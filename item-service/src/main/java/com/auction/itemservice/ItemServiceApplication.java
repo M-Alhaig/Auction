@@ -17,6 +17,11 @@ import static org.springframework.data.web.config.EnableSpringDataWebSupport.Pag
 @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)
 public class ItemServiceApplication {
 
+  /**
+   * Application entry point that launches the Item Service Spring Boot application.
+   *
+   * @param args command-line arguments passed to the application
+   */
   public static void main(String[] args) {
     SpringApplication.run(ItemServiceApplication.class, args);
   }

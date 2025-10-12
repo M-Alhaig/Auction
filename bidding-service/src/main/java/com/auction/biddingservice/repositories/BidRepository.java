@@ -38,11 +38,12 @@ public interface BidRepository extends JpaRepository<Bid, Long> {
   Optional<Bid> findFirstByItemIdOrderByBidAmountDesc(Long itemId);
 
   /**
-   * Finds all bids placed by a specific user, ordered by timestamp descending.
-   *
-   * @param bidderId the user's UUID
-   * @return list of bids (may be empty, could be large for active bidders)
-   */
+ * Retrieve bids placed by a user, ordered by timestamp descending.
+ *
+ * @param bidderId the UUID of the bidder to filter bids by
+ * @param pageable paging and sorting parameters for the result set
+ * @return a Page containing the bidder's bids ordered newest first; may be empty
+ */
   Page<Bid> findByBidderId(UUID bidderId, Pageable pageable);
 
   /**
@@ -61,16 +62,16 @@ public interface BidRepository extends JpaRepository<Bid, Long> {
   Page<Bid> findByItemId(Long itemId, Pageable pageable);
 
   /**
-   * Finds all bids placed by a specific user on a specific item with pagination.
-   *
-   * <p>Sorting is controlled by the caller via {@code Pageable.sort()}. Typical usage:
-   * {@code Sort.by("timestamp").descending()} for chronological history.
-   *
-   * @param itemId   the item ID to query
-   * @param bidderId the user's UUID
-   * @param pageable pagination parameters (page number, size, sort)
-   * @return page of bids (typically small, most users bid 1-3 times per item)
-   */
+ * Retrieve bids placed by a specific user on a specific item, returned as a paginated result.
+ *
+ * <p>Sorting is determined by the provided {@code Pageable} (for example,
+ * {@code Pageable.ofSize(20).withSort(Sort.by("timestamp").descending())}).
+ *
+ * @param itemId   the item ID to query
+ * @param bidderId the bidder's UUID
+ * @param pageable pagination parameters (page number, size, sort)
+ * @return a page of bids placed by the specified bidder on the specified item
+ */
   Page<Bid> findByItemIdAndBidderId(Long itemId, UUID bidderId, Pageable pageable);
 
   /**
@@ -82,24 +83,19 @@ public interface BidRepository extends JpaRepository<Bid, Long> {
   long countByItemId(Long itemId);
 
   /**
-   * Checks if any bid exists for an item with an amount greater than the specified value.
-   *
-   * <p>Efficient way to determine if a bid is outdated without fetching the highest bid entity.
-   *
-   * @param itemId the item ID to query
-   * @param amount the bid amount to compare against
-   * @return true if a higher bid exists, false otherwise
-   */
+ * Determine whether any bid for the given item has an amount greater than the specified value.
+ *
+ * @param itemId the ID of the item to check
+ * @param amount the amount to compare against
+ * @return `true` if a bid exists with an amount greater than `amount`, `false` otherwise
+ */
   boolean existsByItemIdAndBidAmountGreaterThan(Long itemId, BigDecimal amount);
 
   /**
-   * Finds all distinct item IDs that a user has bid on.
+   * Retrieve distinct item IDs that the specified user has placed bids on.
    *
-   * <p>Useful for "My Active Auctions" features where we need to show which auctions a user is
-   * participating in without loading all bid details.
-   *
-   * @param bidderId the user's UUID
-   * @return list of item IDs (may be empty, typically 5-20 items for active users)
+   * @param bidderId the UUID of the bidder
+   * @return a list of distinct item IDs the bidder has bid on; empty if none
    */
   @Query("SELECT DISTINCT b.itemId FROM Bid b WHERE b.bidderId = :bidderId")
   List<Long> findDistinctItemIdsByBidderId(@Param("bidderId") UUID bidderId);

@@ -25,74 +25,67 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
   Page<Item> findBySellerId(UUID sellerId, Pageable pageable);
 
   /**
-   * Find all items with a specific status (PENDING, ACTIVE, ENDED) with pagination. Used for
-   * displaying active auctions to users or filtering items by status.
-   *
-   * @param status   the item status to filter by
-   * @param pageable pagination and sorting parameters
-   * @return paginated list of items with the specified status
-   */
+ * Retrieve a page of items with the specified status.
+ *
+ * @param status   the item status to filter by (e.g., PENDING, ACTIVE, ENDED)
+ * @param pageable pagination and sorting parameters
+ * @return a page of items that match the given status
+ */
   Page<Item> findByStatus(ItemStatus status, Pageable pageable);
 
   /**
-   * Find items by status, ordered by end time in ascending order (ending soonest first). Useful for
-   * showing users which auctions are about to close.
-   *
-   * @param status   the item status to filter by
-   * @param pageable pagination and sorting parameters
-   * @return paginated list of items sorted by end time (earliest first)
-   */
+ * Retrieve a page of items with the given status ordered by end time ascending.
+ *
+ * @param status   the item status to filter by
+ * @param pageable pagination and sorting parameters
+ * @return a page of items with the specified status ordered by earliest end time first
+ */
   Page<Item> findByStatusOrderByEndTimeAsc(ItemStatus status, Pageable pageable);
 
   /**
-   * Find all items with a specific status that end before the given time. Critical for the auction
-   * scheduler to identify auctions that need to be closed. Returns List (not Page) since scheduler
-   * must process ALL matching records.
-   *
-   * @param status  the item status (typically ACTIVE)
-   * @param endTime the cutoff time to check against
-   * @return list of all items matching the criteria (no pagination)
-   */
+ * Retrieve all items with the specified status that end before the given cutoff time.
+ *
+ * @param status  the item status to filter by
+ * @param endTime cutoff; items with an end time strictly before this value are returned
+ * @return a list of items matching the status whose end time is before the cutoff
+ */
   List<Item> findByStatusAndEndTimeBefore(ItemStatus status, LocalDateTime endTime);
 
   /**
-   * Find all items with a specific status that should start at or before the given time. Used by
-   * scheduler to transition PENDING auctions to ACTIVE status. Returns List (not Page) since
-   * scheduler must process ALL matching records.
-   *
-   * @param status    the item status (typically PENDING)
-   * @param startTime the cutoff time to check against (inclusive)
-   * @return list of all items ready to start (no pagination)
-   */
+ * Retrieve all items with the given status whose start time is less than or equal to the specified cutoff.
+ *
+ * Typically used by schedulers to find items (e.g., PENDING) that should transition to ACTIVE; returns all matching items so the scheduler can process every record.
+ *
+ * @param status    the item status to filter by (commonly PENDING)
+ * @param startTime the inclusive cutoff start time
+ * @return a list of items matching the status with startTime <= the specified cutoff
+ */
   List<Item> findByStatusAndStartTimeLessThanEqual(ItemStatus status, LocalDateTime startTime);
 
   /**
-   * Find items by both seller and status with pagination support. Allows sellers to filter their
-   * own items (e.g., "show me my active auctions").
-   *
-   * @param sellerId the UUID of the seller
-   * @param status   the item status to filter by
-   * @param pageable pagination and sorting parameters
-   * @return paginated list of items matching both criteria
-   */
+ * Retrieve a paginated list of items for a given seller filtered by status.
+ *
+ * @param sellerId the UUID of the seller whose items to query
+ * @param status   the item status to filter by
+ * @param pageable pagination and sorting parameters
+ * @return a page of items that belong to the specified seller and have the specified status
+ */
   Page<Item> findBySellerIdAndStatus(UUID sellerId, ItemStatus status, Pageable pageable);
 
   /**
-   * Check if an item exists and is currently ACTIVE. Used by bidding-service to validate bids
-   * before processing. Returns boolean for efficiency (no need to load the entire entity).
+   * Determine whether the item with the given id exists and has status ACTIVE.
    *
-   * @param itemId the ID of the item to check
-   * @return true if an item exists and status is ACTIVE, false otherwise
+   * @param itemId the id of the item to check
+   * @return `true` if an item with the given id exists and has status `ACTIVE`, `false` otherwise
    */
   @Query("SELECT CASE WHEN COUNT(i) > 0 THEN true ELSE false END FROM Item i WHERE i.id = :itemId AND i.status = 'ACTIVE'")
   boolean isItemActiveById(@Param("itemId") Long itemId);
 
   /**
-   * Check if an item exists and is currently PENDING. Used by item-service to validate bids before
-   * updating or deleting. Returns boolean for efficiency (no need to load the entire entity).
+   * Determines whether an item with the given id exists and has status PENDING.
    *
-   * @param itemId the ID of the item to check
-   * @return true if an item exists and status is PENDING, false otherwise
+   * @param itemId the item's primary key
+   * @return true if an item with the given id has status PENDING, false otherwise
    */
   @Query("SELECT CASE WHEN COUNT(i) > 0 THEN true ELSE false END FROM Item i WHERE i.id = :itemId AND i.status = 'PENDING'")
   boolean isItemPendingById(@Param("itemId") Long itemId);

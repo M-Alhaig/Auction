@@ -12,10 +12,21 @@ package com.auction.itemservice.exceptions;
  */
 public class EventPublishException extends RuntimeException {
 
+  /**
+   * Constructs an EventPublishException with the specified detail message.
+   *
+   * @param message the detail message describing the publish failure
+   */
   public EventPublishException(String message) {
     super(message);
   }
 
+  /**
+   * Creates an EventPublishException with a detail message and cause.
+   *
+   * @param message detail message describing the publish failure
+   * @param cause the underlying cause of the failure; may be null
+   */
   public EventPublishException(String message, Throwable cause) {
     super(message, cause);
   }

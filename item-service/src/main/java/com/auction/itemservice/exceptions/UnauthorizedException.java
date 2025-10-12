@@ -6,6 +6,11 @@ package com.auction.itemservice.exceptions;
  */
 public class UnauthorizedException extends RuntimeException {
 
+  /**
+   * Constructs an UnauthorizedException with the specified detail message.
+   *
+   * @param message a descriptive message explaining why the operation is unauthorized
+   */
   public UnauthorizedException(String message) {
     super(message);
   }

@@ -11,10 +11,21 @@ package com.auction.biddingservice.exceptions;
  */
 public class InvalidBidException extends RuntimeException {
 
+  /**
+   * Creates an InvalidBidException with the specified detail message describing why the bid is invalid.
+   *
+   * @param message a human-readable detail explaining which business rule the bid violated
+   */
   public InvalidBidException(String message) {
     super(message);
   }
 
+  /**
+   * Constructs an InvalidBidException with the specified detail message and cause.
+   *
+   * @param message the detail message explaining why the bid is invalid
+   * @param cause the underlying cause of this exception, or {@code null} if none
+   */
   public InvalidBidException(String message, Throwable cause) {
     super(message, cause);
   }

@@ -28,13 +28,11 @@ public class AuctionScheduler {
   private final ItemLifecycleService itemLifecycleService;
 
   /**
-   * Scheduled job to start pending auctions whose start time has arrived.
-   * <p>
-   * Runs 60 seconds after previous execution completes. Lock ensures only one instance
-   * processes this batch.
-   * <p>
-   * Lock configuration: - lockAtMostFor: 50 seconds (prevents deadlock if instance crashes) -
-   * lockAtLeastFor: 10 seconds (prevents too-frequent execution)
+   * Starts pending auctions whose configured start time has been reached.
+   *
+   * Scheduled with a 60-second fixed delay and protected by a distributed lock named
+   * "startPendingAuctions" (lockAtMostFor = "50s", lockAtLeastFor = "10s") to ensure only one
+   * application instance processes the batch and to bound lock duration.
    */
   @Scheduled(fixedDelay = 60000) // 60 seconds after previous execution completes
   @SchedulerLock(

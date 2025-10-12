@@ -44,12 +44,29 @@ public class RabbitMQEventPublisher implements EventPublisher {
   private static final String EXCHANGE_NAME = "auction-events";
   private static final String ROUTING_KEY_PREFIX = "bidding.";
 
+  /**
+   * Publishes the given event using a routing key derived from the event's class name.
+   *
+   * The routing key is formed by removing a trailing "Event" from the class name, converting
+   * the resulting CamelCase name to kebab-case, and prefixing it with "bidding." (for example,
+   * a class named `BidPlacedEvent` yields `bidding.bid-placed`).
+   *
+   * @param event the event object to publish; its class name is used to derive the routing key
+   */
   @Override
   public <T> void publish(T event) {
     String routingKey = buildRoutingKey(event.getClass().getSimpleName());
     publish(event, routingKey);
   }
 
+  /**
+   * Publishes the given event to the configured topic exchange using the provided routing key.
+   *
+   * @param <T> the event type
+   * @param event the event object to publish (will be serialized to JSON)
+   * @param routingKey the routing key used to route the event on the exchange
+   * @throws EventPublishException if publishing fails
+   */
   @Override
   public <T> void publish(T event, String routingKey) {
     try {
@@ -70,6 +87,16 @@ public class RabbitMQEventPublisher implements EventPublisher {
     }
   }
 
+  /**
+   * Constructs the RabbitMQ routing key for an event class name.
+   *
+   * Removes a trailing "Event" suffix if present, converts CamelCase to kebab-case
+   * (lowercase with words separated by hyphens), and prefixes the result with
+   * the configured routing key prefix.
+   *
+   * @param eventClassName the simple class name of the event (for example, "BidPlacedEvent")
+   * @return the routing key to use for publishing (for example, "bidding.bid-placed")
+   */
   private String buildRoutingKey(String eventClassName) {
     String eventName = eventClassName.replace("Event", "");
     String kebabCase = eventName.replaceAll("([a-z])([A-Z])", "$1-$2").toLowerCase();

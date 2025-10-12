@@ -27,7 +27,13 @@ public record UserOutbidEvent(
 ) {
 
   /**
-   * Factory method to create a new UserOutbidEvent with auto-generated metadata.
+   * Create a UserOutbidEvent for an item when a user's bid is outbid.
+   *
+   * @param itemId      identifier of the auction item
+   * @param oldBidderId UUID of the user who was outbid
+   * @param newBidderId UUID of the user who placed the new highest bid
+   * @param newAmount   the new highest bid amount
+   * @return a UserOutbidEvent populated with event metadata and outbid data
    */
   public static UserOutbidEvent create(Long itemId, UUID oldBidderId, UUID newBidderId,
       BigDecimal newAmount) {
@@ -50,4 +56,3 @@ public record UserOutbidEvent(
   ) {
   }
 }
-
