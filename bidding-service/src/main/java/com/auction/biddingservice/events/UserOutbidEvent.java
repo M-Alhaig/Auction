@@ -38,16 +38,16 @@ public record UserOutbidEvent(
         new UserOutbidData(itemId, oldBidderId, newBidderId, newAmount)
     );
   }
-/**
- * Payload data for UserOutbidEvent.
- */
-public record UserOutbidData(
-    Long itemId,
-    UUID oldBidderId,    // User who was outbid
-    UUID newBidderId,    // User who placed the new higher bid
-    BigDecimal newAmount // The new highest bid amount
-) {
 
-}
+  /**
+   * Payload data for UserOutbidEvent.
+   */
+  public record UserOutbidData(
+      Long itemId,
+      UUID oldBidderId,    // User who was outbid
+      UUID newBidderId,    // User who placed the new higher bid
+      BigDecimal newAmount // The new highest bid amount
+  ) {
+  }
 }
 

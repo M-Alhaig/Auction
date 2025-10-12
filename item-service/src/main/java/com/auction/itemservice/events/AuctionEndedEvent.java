@@ -54,17 +54,17 @@ public record AuctionEndedEvent(
         new AuctionEndedData(itemId, sellerId, title, endTime, finalPrice, winnerId)
     );
   }
-}
 
-/**
- * Payload data for AuctionEndedEvent.
- */
-record AuctionEndedData(
-    Long itemId,
-    UUID sellerId,
-    String title,
-    LocalDateTime endTime,
-    BigDecimal finalPrice,
-    UUID winnerId  // Nullable - will be null if no bids were placed
-) {
+  /**
+   * Payload data for AuctionEndedEvent.
+   */
+  public record AuctionEndedData(
+      Long itemId,
+      UUID sellerId,
+      String title,
+      LocalDateTime endTime,
+      BigDecimal finalPrice,
+      UUID winnerId  // Nullable - will be null if no bids were placed
+  ) {
+  }
 }

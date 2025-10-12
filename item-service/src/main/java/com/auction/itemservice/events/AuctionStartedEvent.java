@@ -50,16 +50,16 @@ public record AuctionStartedEvent(
         new AuctionStartedData(itemId, sellerId, title, startTime, startingPrice)
     );
   }
-}
 
-/**
- * Payload data for AuctionStartedEvent.
- */
-record AuctionStartedData(
-    Long itemId,
-    UUID sellerId,
-    String title,
-    LocalDateTime startTime,
-    BigDecimal startingPrice
-) {
+  /**
+   * Payload data for AuctionStartedEvent.
+   */
+  public record AuctionStartedData(
+      Long itemId,
+      UUID sellerId,
+      String title,
+      LocalDateTime startTime,
+      BigDecimal startingPrice
+  ) {
+  }
 }

@@ -235,8 +235,8 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
 
     eventPublisher.publish(event);
 
-    log.debug("Published AuctionStartedEvent - itemId: {}, eventId: {}",
-        item.getId(), event.eventId());
+    log.debug("Published AuctionStartedEvent - itemId: {}, title: '{}', startingPrice: {}, eventId: {}",
+        event.data().itemId(), event.data().title(), event.data().startingPrice(), event.eventId());
   }
 
   /**
@@ -258,7 +258,8 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
 
     eventPublisher.publish(event);
 
-    log.debug("Published AuctionEndedEvent - itemId: {}, finalPrice: {}, eventId: {}",
-        item.getId(), item.getCurrentPrice(), event.eventId());
+    log.debug("Published AuctionEndedEvent - itemId: {}, title: '{}', finalPrice: {}, winnerId: {}, eventId: {}",
+        event.data().itemId(), event.data().title(), event.data().finalPrice(),
+        event.data().winnerId(), event.eventId());
   }
 }
