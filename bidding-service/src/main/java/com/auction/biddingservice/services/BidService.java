@@ -2,6 +2,9 @@ package com.auction.biddingservice.services;
 
 import com.auction.biddingservice.dto.BidResponse;
 import com.auction.biddingservice.dto.PlaceBidRequest;
+import com.auction.biddingservice.exceptions.AuctionNotFoundException;
+import com.auction.biddingservice.exceptions.BidLockException;
+import com.auction.biddingservice.exceptions.InvalidBidException;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -34,9 +37,9 @@ public interface BidService {
  * @param request  the bid details, including the target itemId and bidAmount
  * @param bidderId the UUID of the authenticated bidder
  * @return the created BidResponse with `isCurrentHighest` set to `true`
- * @throws com.auction.biddingservice.exceptions.InvalidBidException if the bid violates business rules (e.g., auction inactive, amount not higher than current, bidder is item owner)
- * @throws com.auction.biddingservice.exceptions.BidLockException if a distributed lock cannot be acquired to perform the placement atomically
- * @throws com.auction.biddingservice.exceptions.AuctionNotFoundException if the specified item does not exist
+ * @throws InvalidBidException if the bid violates business rules (e.g., auction inactive, amount not higher than current, bidder is item owner)
+ * @throws BidLockException if a distributed lock cannot be acquired to perform the placement atomically
+ * @throws AuctionNotFoundException if the specified item does not exist
  */
   BidResponse placeBid(PlaceBidRequest request, UUID bidderId);
 
