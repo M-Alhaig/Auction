@@ -9,13 +9,13 @@ The following was discovered as part of building this project:
 For further reference, please consider the following sections:
 
 * [Official Apache Maven documentation](https://maven.apache.org/guides/index.html)
-* [Spring Boot Maven Plugin Reference Guide](https://docs.spring.io/spring-boot/3.5.6/maven-plugin)
-* [Create an OCI image](https://docs.spring.io/spring-boot/3.5.6/maven-plugin/build-image.html)
-* [Spring Web](https://docs.spring.io/spring-boot/3.5.6/reference/web/servlet.html)
-* [Spring Data JPA](https://docs.spring.io/spring-boot/3.5.6/reference/data/sql.html#data.sql.jpa-and-spring-data)
-* [Spring for RabbitMQ](https://docs.spring.io/spring-boot/3.5.6/reference/messaging/amqp.html)
-* [WebSocket](https://docs.spring.io/spring-boot/3.5.6/reference/messaging/websockets.html)
-* [Spring Data Redis (Access+Driver)](https://docs.spring.io/spring-boot/3.5.6/reference/data/nosql.html#data.nosql.redis)
+* [Spring Boot Maven Plugin Reference Guide](https://docs.spring.io/spring-boot/3.3.3/maven-plugin)
+* [Create an OCI image](https://docs.spring.io/spring-boot/3.3.3/maven-plugin/build-image.html)
+* [Spring Web](https://docs.spring.io/spring-boot/3.3.3/reference/web/servlet.html)
+* [Spring Data JPA](https://docs.spring.io/spring-boot/3.3.3/reference/data/sql.html#data.sql.jpa-and-spring-data)
+* [Spring for RabbitMQ](https://docs.spring.io/spring-boot/3.3.3/reference/messaging/amqp.html)
+* [WebSocket](https://docs.spring.io/spring-boot/3.3.3/reference/messaging/websockets.html)
+* [Spring Data Redis (Access+Driver)](https://docs.spring.io/spring-boot/3.3.3/reference/data/nosql.html#data.nosql.redis)
 
 ### Guides
 The following guides illustrate how to use some features concretely:
