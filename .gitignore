@@ -19,4 +19,8 @@ build/
 Thumbs.db
 
 # Environment variables
-*.env
+.env
+.env.*
+.env.local
+.env.*.local
+.envrc
