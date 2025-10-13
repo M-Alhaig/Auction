@@ -30,9 +30,9 @@ public class RabbitMQConfig {
   /**
    * Declares a durable topic exchange named "auction-events" for routing auction event messages.
    *
-   * Consumers bind queues with routing key patterns to receive matching auction events.
+   * <p>Consumers bind queues with routing key patterns to receive matching auction events.
    *
-   * @return the TopicExchange configured with name "auction-events", durable = true, and autoDelete = false
+   * @return the TopicExchange configured with the name "auction-events", durable = true, and autoDelete = false
    */
   @Bean
   public TopicExchange auctionEventsExchange() {
@@ -53,6 +53,7 @@ public class RabbitMQConfig {
   public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
     RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
     rabbitTemplate.setMessageConverter(jsonMessageConverter());
+	rabbitTemplate.setExchange(EXCHANGE_NAME);
     return rabbitTemplate;
   }
 

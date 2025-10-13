@@ -61,6 +61,7 @@ public class RabbitMQConfig {
   public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
     RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
     rabbitTemplate.setMessageConverter(jsonMessageConverter());
+    rabbitTemplate.setExchange(EXCHANGE_NAME);
     return rabbitTemplate;
   }
 

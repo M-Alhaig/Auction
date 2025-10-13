@@ -41,7 +41,6 @@ public class RabbitMQEventPublisher implements EventPublisher {
 
   private final RabbitTemplate rabbitTemplate;
 
-  private static final String EXCHANGE_NAME = "auction-events";
   private static final String ROUTING_KEY_PREFIX = "bidding.";
 
   /**
@@ -70,11 +69,11 @@ public class RabbitMQEventPublisher implements EventPublisher {
   @Override
   public <T> void publish(T event, String routingKey) {
     try {
-      log.debug("Publishing event - exchange: {}, routingKey: {}, event: {}", EXCHANGE_NAME,
+      log.debug("Publishing event - exchange: {}, routingKey: {}, event: {}", rabbitTemplate.getExchange(),
           routingKey, event.getClass().getSimpleName());
 
       // Pass event object directly - Jackson2JsonMessageConverter handles serialization
-      rabbitTemplate.convertAndSend(EXCHANGE_NAME, routingKey, event);
+      rabbitTemplate.convertAndSend(routingKey, event);
 
       log.info("Event published successfully - type: {}, routingKey: {}",
           event.getClass().getSimpleName(), routingKey);
