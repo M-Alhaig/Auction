@@ -1,14 +1,15 @@
 package com.auction.biddingservice.exceptions;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,6 +43,7 @@ public class GlobalExceptionHandler {
 
     ErrorResponse error = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), BAD_REQUEST,
         ex.getMessage(), request.getRequestURI());
+
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
   }
 
@@ -100,7 +102,7 @@ public class GlobalExceptionHandler {
   /**
    * Map an IllegalArgumentException to a 400 Bad Request response.
    *
-   * Logs a warning with the request URI and the exception message.
+   * <p>Logs a warning with the request URI and the exception message.
    *
    * @param ex      the IllegalArgumentException that occurred
    * @param request the HTTP request whose URI is included in the response
@@ -129,9 +131,8 @@ public class GlobalExceptionHandler {
     Map<String, String> fieldErrors = new HashMap<>();
 
     // Extract field-level errors
-    for (FieldError error : ex.getBindingResult().getFieldErrors()) {
-      fieldErrors.put(error.getField(), error.getDefaultMessage());
-    }
+	  ex.getBindingResult().getFieldErrors()
+		  .forEach(error -> fieldErrors.put(error.getField(), error.getDefaultMessage()));
 
     log.warn("Validation failed - path: {}, errors: {}", request.getRequestURI(), fieldErrors);
 
@@ -143,9 +144,74 @@ public class GlobalExceptionHandler {
   }
 
   /**
+   * Handle validation errors on method parameters (path variables, request params).
+   *
+   * <p>Triggered when @Valid or validation annotations (@NotNull, @Min, etc.) are placed
+   * directly on controller method parameters rather than on request body objects.
+   *
+   * @param ex the ConstraintViolationException containing all validation violations
+   * @param request the HTTP request whose URI is included in the error response
+   * @return an ErrorResponse with HTTP status 400, error "Validation Failed", field-level errors,
+   *         and the request URI
+   */
+  @ExceptionHandler(ConstraintViolationException.class)
+  public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex,
+      HttpServletRequest request) {
+    Map<String, String> fieldErrors = new HashMap<>();
+
+    // Extract property path and message from each violation
+    ex.getConstraintViolations().forEach(violation -> fieldErrors.put(
+        violation.getPropertyPath().toString(),
+        violation.getMessage()
+    ));
+
+    log.warn("Constraint violation - path: {}, errors: {}", request.getRequestURI(), fieldErrors);
+
+    ErrorResponse error = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Validation Failed",
+        "Input validation failed. Check fieldErrors for details.", request.getRequestURI(),
+        fieldErrors);
+
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+  }
+
+  /**
+   * Handle type conversion failures for path variables and request parameters.
+   *
+   * <p>Triggered when Spring cannot convert a String parameter to the expected type
+   * (e.g., "abc" for UUID, "invalid" for Long, "not-a-date" for Instant).
+   *
+   * @param ex the MethodArgumentTypeMismatchException describing the conversion failure
+   * @param request the HTTP request whose URI is included in the error response
+   * @return an ErrorResponse with HTTP status 400, error "Bad Request", a user-friendly message
+   *         describing the parameter name and expected type, and the request URI
+   */
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex,
+      HttpServletRequest request) {
+    String paramName = ex.getName();
+    String paramValue = String.valueOf(ex.getValue());
+    String expectedType = ex.getRequiredType() != null
+        ? ex.getRequiredType().getSimpleName()
+        : "unknown";
+
+    String message = String.format(
+        "Invalid value '%s' for parameter '%s'. Expected type: %s",
+        paramValue, paramName, expectedType
+    );
+
+    log.warn("Type mismatch - path: {}, param: {}, value: {}, expectedType: {}",
+        request.getRequestURI(), paramName, paramValue, expectedType);
+
+    ErrorResponse error = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), BAD_REQUEST,
+        message, request.getRequestURI());
+
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+  }
+
+  /**
    * Convert a malformed or unreadable HTTP request body into a 400 Bad Request error response.
    *
-   * If the exception's root cause is an IllegalArgumentException, its message is used as the error message;
+   * <p>If the exception's root cause is an IllegalArgumentException, its message is used as the error message;
    * otherwise a generic "Invalid request body" message is returned.
    *
    * @return a ResponseEntity containing an ErrorResponse describing the bad request with HTTP status 400
