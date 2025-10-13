@@ -3,7 +3,7 @@ package com.auction.itemservice.dto;
 import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Set;
 
 /**
@@ -30,11 +30,11 @@ public record CreateItemRequest(
 
     @NotNull(message = "Start time is required")
     @Future(message = "Start time must be in the future")
-    LocalDateTime startTime,
+    Instant startTime,
 
     @NotNull(message = "End time is required")
     @Future(message = "End time must be in the future")
-    LocalDateTime endTime,
+    Instant endTime,
 
     @Size(max = 10, message = "Maximum 10 categories allowed")
     Set<Integer> categoryIds

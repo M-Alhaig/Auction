@@ -7,7 +7,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -51,19 +51,19 @@ public class Item {
   @Column(name = "status", nullable = false)
   private ItemStatus status = ItemStatus.PENDING;
 
-  @Column(name = "start_time", nullable = false)
-  private LocalDateTime startTime;
+  @Column(name = "start_time", nullable = false, columnDefinition = "TIMESTAMPTZ")
+  private Instant startTime;
 
-  @Column(name = "end_time", nullable = false)
-  private LocalDateTime endTime;
+  @Column(name = "end_time", nullable = false, columnDefinition = "TIMESTAMPTZ")
+  private Instant endTime;
 
   @CreationTimestamp
-  @Column(name = "created_at", nullable = false)
-  private LocalDateTime createdAt;
+  @Column(name = "created_at", nullable = false, columnDefinition = "TIMESTAMPTZ")
+  private Instant createdAt;
 
   @UpdateTimestamp
-  @Column(name = "updated_at", nullable = false)
-  private LocalDateTime updatedAt;
+  @Column(name = "updated_at", nullable = false, columnDefinition = "TIMESTAMPTZ")
+  private Instant updatedAt;
 
   @ToString.Exclude
   @ManyToMany

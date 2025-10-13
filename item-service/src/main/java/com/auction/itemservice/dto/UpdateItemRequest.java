@@ -5,7 +5,7 @@ import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Set;
 
 /**
@@ -27,9 +27,9 @@ public record UpdateItemRequest(
     @Size(max = 500, message = "Image URL must not exceed 500 characters")
     String imageUrl,
 
-    LocalDateTime startTime,
+    Instant startTime,
 
-    LocalDateTime endTime,
+    Instant endTime,
 
     @Size(max = 10, message = "Maximum 10 categories allowed")
     Set<Integer> categoryIds

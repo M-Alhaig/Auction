@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class AuctionScheduler {
+public class  AuctionScheduler {
 
   private final ItemLifecycleService itemLifecycleService;
 

@@ -1,7 +1,7 @@
 package com.auction.itemservice.events;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -24,7 +24,7 @@ import java.util.UUID;
 public record AuctionEndedEvent(
     String eventId,
     String eventType,
-    LocalDateTime timestamp,
+    Instant timestamp,
     AuctionEndedData data
 ) {
 
@@ -34,23 +34,23 @@ public record AuctionEndedEvent(
    * @param itemId     the auction item ID
    * @param sellerId   the seller's user ID
    * @param title      the auction title
-   * @param endTime    when the auction ended
+   * @param endTime    when the auction ended (UTC)
    * @param finalPrice the final winning bid (or startingPrice if no bids)
    * @param winnerId   the winning bidder's ID (null if no bids)
-   * @return the constructed event ready for publishing
+   * @return the constructed event ready for publishing with UTC timestamps
    */
   public static AuctionEndedEvent create(
       Long itemId,
       UUID sellerId,
       String title,
-      LocalDateTime endTime,
+      Instant endTime,
       BigDecimal finalPrice,
       UUID winnerId
   ) {
     return new AuctionEndedEvent(
         UUID.randomUUID().toString(),   // Auto-generate eventId
         "AuctionEndedEvent",            // Event type for routing
-        LocalDateTime.now(),            // Current timestamp
+        Instant.now(),                  // Current UTC timestamp
         new AuctionEndedData(itemId, sellerId, title, endTime, finalPrice, winnerId)
     );
   }
@@ -62,7 +62,7 @@ public record AuctionEndedEvent(
       Long itemId,
       UUID sellerId,
       String title,
-      LocalDateTime endTime,
+      Instant endTime,
       BigDecimal finalPrice,
       UUID winnerId  // Nullable - will be null if no bids were placed
   ) {

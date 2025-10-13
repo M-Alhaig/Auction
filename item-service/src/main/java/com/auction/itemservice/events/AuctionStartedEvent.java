@@ -1,7 +1,7 @@
 package com.auction.itemservice.events;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -22,7 +22,7 @@ import java.util.UUID;
 public record AuctionStartedEvent(
     String eventId,
     String eventType,
-    LocalDateTime timestamp,
+    Instant timestamp,
     AuctionStartedData data
 ) {
 
@@ -32,21 +32,21 @@ public record AuctionStartedEvent(
    * @param itemId        the auction item identifier
    * @param sellerId      the seller's UUID
    * @param title         the auction title
-   * @param startTime     the auction start time
+   * @param startTime     the auction start time (UTC)
    * @param startingPrice the initial bid price for the auction
-   * @return the constructed AuctionStartedEvent with generated eventId, eventType "AuctionStartedEvent", current timestamp, and payload data
+   * @return the constructed AuctionStartedEvent with generated eventId, eventType "AuctionStartedEvent", current UTC timestamp, and payload data
    */
   public static AuctionStartedEvent create(
       Long itemId,
       UUID sellerId,
       String title,
-      LocalDateTime startTime,
+      Instant startTime,
       BigDecimal startingPrice
   ) {
     return new AuctionStartedEvent(
         UUID.randomUUID().toString(),   // Auto-generate eventId
         "AuctionStartedEvent",          // Event type for routing
-        LocalDateTime.now(),            // Current timestamp
+        Instant.now(),                  // Current UTC timestamp
         new AuctionStartedData(itemId, sellerId, title, startTime, startingPrice)
     );
   }
@@ -58,7 +58,7 @@ public record AuctionStartedEvent(
       Long itemId,
       UUID sellerId,
       String title,
-      LocalDateTime startTime,
+      Instant startTime,
       BigDecimal startingPrice
   ) {
   }
