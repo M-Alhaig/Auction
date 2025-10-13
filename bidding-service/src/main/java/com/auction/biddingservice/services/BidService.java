@@ -63,23 +63,31 @@ public interface BidService {
    * <p>Returns simple chronological history without expensive {@code isCurrentHighest} checks.
    * All bids are marked as historical ({@code isCurrentHighest=false}) for performance.
    *
-   * @param bidderId the user's UUID
-   * @param pageable pagination parameters (page, size, sort)
+   * <p>TODO: Replace authenticatedUserId with @AuthenticationPrincipal when Spring Security is integrated.
+   *
+   * @param bidderId           the user's UUID
+   * @param authenticatedUserId the authenticated user's UUID (from X-Auth-Id header, temporary until Spring Security)
+   * @param pageable           pagination parameters (page, size, sort)
    * @return page of user's bids with flexible sorting
+   * @throws IllegalArgumentException if authenticatedUserId != bidderId (privacy protection)
    */
-  Page<BidResponse> getUserBids(UUID bidderId, Pageable pageable);
+  Page<BidResponse> getUserBids(UUID bidderId, UUID authenticatedUserId, Pageable pageable);
 
   /**
  * Retrieves a paginated list of bids a specific user placed on a specific item.
  *
  * <p>Each returned BidResponse has its {@code isCurrentHighest} flag set accurately for this item.
  *
- * @param itemId   the item ID to query
- * @param bidderId the user's UUID
- * @param pageable pagination parameters
+ * <p>TODO: Replace authenticatedUserId with @AuthenticationPrincipal when Spring Security is integrated.
+ *
+ * @param itemId              the item ID to query
+ * @param bidderId            the user's UUID
+ * @param authenticatedUserId the authenticated user's UUID (from X-Auth-Id header, temporary until Spring Security)
+ * @param pageable            pagination parameters
  * @return a page of BidResponse objects for the given user and item with {@code isCurrentHighest} set correctly
+ * @throws IllegalArgumentException if authenticatedUserId != bidderId (privacy protection)
  */
-  Page<BidResponse> getUserBidsForItem(Long itemId, UUID bidderId, Pageable pageable);
+  Page<BidResponse> getUserBidsForItem(Long itemId, UUID bidderId, UUID authenticatedUserId, Pageable pageable);
 
   /**
    * Counts the total number of bids for an auction item.
@@ -92,8 +100,12 @@ public interface BidService {
   /**
  * Retrieves the distinct item IDs a user has placed bids on.
  *
- * @param bidderId the UUID of the bidder
+ * <p>TODO: Replace authenticatedUserId with @AuthenticationPrincipal when Spring Security is integrated.
+ *
+ * @param bidderId            the UUID of the bidder
+ * @param authenticatedUserId the authenticated user's UUID (from X-Auth-Id header, temporary until Spring Security)
  * @return a list of distinct item IDs the user has bid on; may be empty
+ * @throws IllegalArgumentException if authenticatedUserId != bidderId (privacy protection)
  */
-  List<Long> getItemsUserHasBidOn(UUID bidderId);
+  List<Long> getItemsUserHasBidOn(UUID bidderId, UUID authenticatedUserId);
 }

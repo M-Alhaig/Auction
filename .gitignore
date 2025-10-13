@@ -12,7 +12,7 @@ build/
 *.log
 
 # Maven
-.mvn/wrapper/maven-wrapper.jar
+# Note: maven-wrapper.jar is committed to allow './mvnw' without local Maven installation
 
 # OS
 .DS_Store
