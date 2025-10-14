@@ -3,12 +3,16 @@ package com.auction.itemservice.services;
 import com.auction.itemservice.events.AuctionEndedEvent;
 import com.auction.itemservice.events.AuctionStartedEvent;
 import com.auction.itemservice.events.EventPublisher;
+import com.auction.itemservice.exceptions.ConcurrentBidException;
 import com.auction.itemservice.exceptions.ItemNotFoundException;
 import com.auction.itemservice.models.Item;
 import com.auction.itemservice.models.ItemStatus;
 import com.auction.itemservice.repositories.ItemRepository;
+import java.time.Duration;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,306 +25,336 @@ import java.util.List;
  * operations: status transitions, price updates, events.
  *
  * <p>IMPORTANT: Uses self-injection pattern to enable proper transaction proxying.
- * Batch operations call individual auction operations via the 'self' proxy to ensure
- * each auction start/end gets its own transaction boundary for proper error isolation.
+ * Batch operations call individual auction operations via the 'self' proxy to ensure each auction
+ * start/end gets its own transaction boundary for proper error isolation.
  */
 @Slf4j
 @Service
 @Transactional
 public class ItemLifecycleServiceImpl implements ItemLifecycleService {
 
-  private final ItemRepository itemRepository;
-  private final EventPublisher eventPublisher;
-  private final ItemLifecycleService self;
-  // TODO: Inject RedisLockService when Redis is configured
+	private final ItemRepository itemRepository;
+	private final EventPublisher eventPublisher;
+	private final ItemLifecycleService self;
+	private final RedisTemplate<String, String> redisTemplate;
 
-  /**
-   * Create an ItemLifecycleServiceImpl with required dependencies and a lazily injected self reference for proxy-aware internal calls.
-   *
-   * @param itemRepository the repository used to load and persist Item entities
-   * @param eventPublisher the publisher used to emit domain events
-   * @param self           a lazily injected self-reference (proxy) used for internal calls that require proxy-aware behavior (e.g., per-method transactional boundaries)
-   */
-  public ItemLifecycleServiceImpl(
-      ItemRepository itemRepository,
-      EventPublisher eventPublisher,
-      @Lazy ItemLifecycleService self) {
-    this.itemRepository = itemRepository;
-    this.eventPublisher = eventPublisher;
-    this.self = self;
-  }
+	private static final Duration LOCK_TIMEOUT = Duration.ofSeconds(5);
+	private static final String LOCK_KEY_PREFIX = "lock:bid:";
 
-  /**
-   * Transition the specified item from PENDING to ACTIVE and publish an AuctionStartedEvent.
-   *
-   * Changes the item's status to ACTIVE, persists the update, and emits an event so downstream
-   * systems can react to the auction start.
-   *
-   * @param itemId the identifier of the item to start
-   * @throws ItemNotFoundException if no item exists with the given id
-   * @throws IllegalStateException if the item's current status is not PENDING
-   */
+	/**
+	 * Create an ItemLifecycleServiceImpl with required dependencies and a lazily injected self
+	 * reference for proxy-aware internal calls.
+	 *
+	 * @param itemRepository the repository used to load and persist Item entities
+	 * @param eventPublisher the publisher used to emit domain events
+	 * @param self           a lazily injected self-reference (proxy) used for internal calls that
+	 *                       require proxy-aware behavior (e.g., per-method transactional
+	 *                       boundaries)
+	 */
+	public ItemLifecycleServiceImpl(ItemRepository itemRepository, EventPublisher eventPublisher,
+		@Lazy ItemLifecycleService self, RedisTemplate<String, String> redisTemplate) {
+		this.itemRepository = itemRepository;
+		this.eventPublisher = eventPublisher;
+		this.self = self;
+		this.redisTemplate = redisTemplate;
+	}
 
-  @Override
-  public void startAuction(Long itemId) {
-    log.debug("Starting auction for item: {}", itemId);
+	/**
+	 * Transition the specified item from PENDING to ACTIVE and publish an AuctionStartedEvent.
+	 * <p>
+	 * Changes the item's status to ACTIVE, persists the update, and emits an event so downstream
+	 * systems can react to the auction start.
+	 *
+	 * @param itemId the identifier of the item to start
+	 * @throws ItemNotFoundException if no item exists with the given id
+	 * @throws IllegalStateException if the item's current status is not PENDING
+	 */
 
-    Item item = itemRepository.findById(itemId)
-        .orElseThrow(() -> new ItemNotFoundException(itemId));
+	@Override
+	public void startAuction(Long itemId) {
+		log.debug("Starting auction for item: {}", itemId);
 
-    if (item.getStatus() != ItemStatus.PENDING) {
-      log.warn("Cannot start auction - itemId: {}, currentStatus: {}, expectedStatus: PENDING",
-          itemId, item.getStatus());
-      throw new IllegalStateException("Item is not in PENDING status");
-    }
+		Item item = itemRepository.findById(itemId)
+			.orElseThrow(() -> new ItemNotFoundException(itemId));
 
-    item.setStatus(ItemStatus.ACTIVE);
-    item = itemRepository.save(item);
+		if (item.getStatus() != ItemStatus.PENDING) {
+			log.warn(
+				"Cannot start auction - itemId: {}, currentStatus: {}, expectedStatus: PENDING",
+				itemId, item.getStatus());
+			throw new IllegalStateException("Item is not in PENDING status");
+		}
 
-    log.info("Auction started - itemId: {}, title: '{}', startTime: {}",
-        itemId, item.getTitle(), item.getStartTime());
+		item.setStatus(ItemStatus.ACTIVE);
+		item = itemRepository.save(item);
 
-    publishAuctionStartedEvent(item);
-  }
+		log.info("Auction started - itemId: {}, title: '{}', startTime: {}", itemId,
+			item.getTitle(), item.getStartTime());
 
-  /**
-   * End the auction for the specified item.
-   *
-   * Sets the item's status to ENDED, persists the change, logs the final price and end time,
-   * and publishes an AuctionEndedEvent.
-   *
-   * @param itemId the identifier of the item whose auction should be ended
-   * @throws ItemNotFoundException if no item exists with the given id
-   * @throws IllegalStateException if the item is not currently in ACTIVE status
-   */
-  @Override
-  public void endAuction(Long itemId) {
-    log.debug("Ending auction for item: {}", itemId);
+		publishAuctionStartedEvent(item);
+	}
 
-    Item item = itemRepository.findById(itemId)
-        .orElseThrow(() -> new ItemNotFoundException(itemId));
+	/**
+	 * End the auction for the specified item.
+	 * <p>
+	 * Sets the item's status to ENDED, persists the change, logs the final price and end time, and
+	 * publishes an AuctionEndedEvent.
+	 *
+	 * @param itemId the identifier of the item whose auction should be ended
+	 * @throws ItemNotFoundException if no item exists with the given id
+	 * @throws IllegalStateException if the item is not currently in ACTIVE status
+	 */
+	@Override
+	public void endAuction(Long itemId) {
+		log.debug("Ending auction for item: {}", itemId);
 
-    if (item.getStatus() != ItemStatus.ACTIVE) {
-      log.warn("Cannot end auction - itemId: {}, currentStatus: {}, expectedStatus: ACTIVE",
-          itemId, item.getStatus());
-      throw new IllegalStateException("Item is not in ACTIVE status");
-    }
+		Item item = itemRepository.findById(itemId)
+			.orElseThrow(() -> new ItemNotFoundException(itemId));
 
-    item.setStatus(ItemStatus.ENDED);
-    item = itemRepository.save(item);
+		if (item.getStatus() != ItemStatus.ACTIVE) {
+			log.warn("Cannot end auction - itemId: {}, currentStatus: {}, expectedStatus: ACTIVE",
+				itemId, item.getStatus());
+			throw new IllegalStateException("Item is not in ACTIVE status");
+		}
 
-    log.info("Auction ended - itemId: {}, title: '{}', finalPrice: {}, endTime: {}",
-        itemId, item.getTitle(), item.getCurrentPrice(), item.getEndTime());
+		item.setStatus(ItemStatus.ENDED);
+		item = itemRepository.save(item);
 
-    publishAuctionEndedEvent(item);
-  }
+		log.info("Auction ended - itemId: {}, title: '{}', finalPrice: {}, endTime: {}", itemId,
+			item.getTitle(), item.getCurrentPrice(), item.getEndTime());
 
-  /**
-   * Start all pending auctions whose configured start time is now or in the past.
-   *
-   * Processes each eligible item and attempts to transition it to the active state; failures
-   * for individual items are logged and do not stop the batch from continuing.
-   *
-   * @return the number of auctions that were successfully started
-   */
+		publishAuctionEndedEvent(item);
+	}
 
-  @Override
-  public int batchStartPendingAuctions() {
-    List<Item> pendingItems = self.findPendingItemsToStart();
+	/**
+	 * Start all pending auctions whose configured start time is now or in the past.
+	 * <p>
+	 * Processes each eligible item and attempts to transition it to the active state; failures for
+	 * individual items are logged and do not stop the batch from continuing.
+	 *
+	 * @return the number of auctions that were successfully started
+	 */
 
-    if (pendingItems.isEmpty()) {
-      log.debug("No pending auctions to start");
-      return 0;
-    }
+	@Override
+	public int batchStartPendingAuctions() {
+		List<Item> pendingItems = self.findPendingItemsToStart();
 
-    log.info("Starting batch auction start - found {} auctions ready to start",
-        pendingItems.size());
+		if (pendingItems.isEmpty()) {
+			log.debug("No pending auctions to start");
+			return 0;
+		}
 
-    int successCount = 0;
-    int failureCount = 0;
+		log.info("Starting batch auction start - found {} auctions ready to start",
+			pendingItems.size());
 
-    for (Item item : pendingItems) {
-      try {
-        // Call via self-proxy to ensure proper transaction boundary for each auction
-        self.startAuction(item.getId());
-        successCount++;
-      } catch (Exception e) {
-        failureCount++;
-        log.error("Failed to start auction - itemId: {}, error: {}",
-            item.getId(), e.getMessage(), e);
-      }
-    }
+		int successCount = 0;
+		int failureCount = 0;
 
-    log.info("Batch auction start completed - total: {}, succeeded: {}, failed: {}",
-        pendingItems.size(), successCount, failureCount);
+		for (Item item : pendingItems) {
+			try {
+				// Call via self-proxy to ensure proper transaction boundary for each auction
+				self.startAuction(item.getId());
+				successCount++;
+			} catch (Exception e) {
+				failureCount++;
+				log.error("Failed to start auction - itemId: {}, error: {}", item.getId(),
+					e.getMessage(), e);
+			}
+		}
 
-    return successCount;
-  }
+		log.info("Batch auction start completed - total: {}, succeeded: {}, failed: {}",
+			pendingItems.size(), successCount, failureCount);
 
-  /**
-   * Processes active auctions whose end time has passed and attempts to end each auction.
-   *
-   * Attempts to end every expired active auction, logs failures while continuing processing,
-   * and records per-auction success and failure counts.
-   *
-   * @return the number of auctions successfully ended
-   */
-  @Override
-  public int batchEndExpiredAuctions() {
-    List<Item> activeItems = self.findActiveItemsToEnd();
+		return successCount;
+	}
 
-    if (activeItems.isEmpty()) {
-      log.debug("No active auctions to end");
-      return 0;
-    }
+	/**
+	 * Processes active auctions whose end time has passed and attempts to end each auction.
+	 * <p>
+	 * Attempts to end every expired active auction, logs failures while continuing processing, and
+	 * records per-auction success and failure counts.
+	 *
+	 * @return the number of auctions successfully ended
+	 */
+	@Override
+	public int batchEndExpiredAuctions() {
+		List<Item> activeItems = self.findActiveItemsToEnd();
 
-    log.info("Starting batch auction end - found {} auctions ready to end", activeItems.size());
+		if (activeItems.isEmpty()) {
+			log.debug("No active auctions to end");
+			return 0;
+		}
 
-    int successCount = 0;
-    int failureCount = 0;
+		log.info("Starting batch auction end - found {} auctions ready to end", activeItems.size());
 
-    for (Item item : activeItems) {
-      try {
-        // Call via self-proxy to ensure proper transaction boundary for each auction
-        self.endAuction(item.getId());
-        successCount++;
-      } catch (Exception e) {
-        failureCount++;
-        log.error("Failed to end auction - itemId: {}, error: {}",
-            item.getId(), e.getMessage(), e);
-      }
-    }
+		int successCount = 0;
+		int failureCount = 0;
 
-    log.info("Batch auction end completed - total: {}, succeeded: {}, failed: {}",
-        activeItems.size(), successCount, failureCount);
+		for (Item item : activeItems) {
+			try {
+				// Call via self-proxy to ensure proper transaction boundary for each auction
+				self.endAuction(item.getId());
+				successCount++;
+			} catch (Exception e) {
+				failureCount++;
+				log.error("Failed to end auction - itemId: {}, error: {}", item.getId(),
+					e.getMessage(), e);
+			}
+		}
 
-    return successCount;
-  }
+		log.info("Batch auction end completed - total: {}, succeeded: {}, failed: {}",
+			activeItems.size(), successCount, failureCount);
 
-  /**
-   * Update an item's current price while preventing concurrent bid races using a distributed lock.
-   *
-   * <p>This method is a placeholder and is not implemented: it currently throws
-   * {@link UnsupportedOperationException}. When implemented it will acquire a Redis-based
-   * distributed lock for the item, validate that `newPrice` is greater than the current price,
-   * persist the change, and release the lock to avoid race conditions from concurrent bids.
-   *
-   * @param itemId   the id of the item whose current price should be updated
-   * @param newPrice the candidate new current price; intended to be greater than the item's current price
-   * @throws UnsupportedOperationException always thrown in the current temporary implementation
-   */
+		return successCount;
+	}
 
-  @Override
-  public void updateCurrentPriceWithLock(Long itemId, BigDecimal newPrice) {
-    // TODO: Implement updateCurrentPriceWithLock with Redis distributed locking
-    // CRITICAL: This method handles race conditions when multiple bids arrive simultaneously
-    //
-    // Implementation plan:
-    // 1. Acquire Redis distributed lock: lock:item:{itemId}
-    //    - Use RedisLockService.tryLock(lockKey, Duration.ofSeconds(5))
-    //    - If lock cannot be acquired, throw ConcurrentBidException("Retry")
-    //
-    // 2. Inside try-finally block:
-    //    a. Find item by ID (throw ItemNotFoundException if not found)
-    //    b. Validate newPrice > currentPrice (throw IllegalArgumentException if not)
-    //    c. Update item.setCurrentPrice(newPrice)
-    //    d. Save to database
-    //
-    // 3. Finally: Release lock
-    //    - redisLockService.unlock(lockKey)
-    //
-    // TEMPORARY IMPLEMENTATION (without Redis):
-    // For now, implement without locking and document the race condition risk
-    // Replace with Redis locking when infrastructure is ready
+	/**
+	 * Update an item's current price and winner while preventing concurrent bid races using a distributed
+	 * lock.
+	 *
+	 * <p>Acquires a Redis-based distributed lock for the item, validates that `newPrice` is greater than
+	 * the current price, updates both price and winnerId, persists the change, and releases the lock.
+	 *
+	 * @param itemId   the id of the item whose current price should be updated
+	 * @param winnerId the UUID of the bidder who placed the highest bid
+	 * @param newPrice the candidate new current price; must be greater than the item's current price
+	 * @throws ItemNotFoundException     if the item does not exist
+	 * @throws ConcurrentBidException    if the Redis lock cannot be acquired (retry suggested)
+	 * @throws IllegalArgumentException  if newPrice is not greater than the current price
+	 */
 
-    throw new UnsupportedOperationException(
-        "Not implemented yet - requires Redis distributed locking");
-  }
+	@Override
+	public void updateCurrentPriceWithLock(Long itemId, UUID winnerId, BigDecimal newPrice) {
+		log.info("updateCurrentPriceWithLock - itemId: {}, winnerId: {}, newPrice: {}", itemId, winnerId, newPrice);
 
-  /**
-   * Check whether the specified item is currently active.
-   *
-   * @param itemId the database identifier of the item to check
-   * @return `true` if the item is active, `false` otherwise
-   */
+		String lockKey = LOCK_KEY_PREFIX + itemId;
+		String lockToken = UUID.randomUUID().toString();
 
-  @Override
-  @Transactional(readOnly = true)
-  public boolean isItemActive(Long itemId) {
-    log.debug("Checking if item is active: {}", itemId);
-    return itemRepository.isItemActiveById(itemId);
-  }
+		Boolean lockAcquired = redisTemplate.opsForValue().setIfAbsent(lockKey, lockToken, LOCK_TIMEOUT);
 
-  /**
-   * Retrieve items with status PENDING whose start time is now or earlier.
-   *
-   * @return a list of Item entities in PENDING status with startTime <= now; an empty list if none are found
-   */
+		if (!Boolean.TRUE.equals(lockAcquired)) {
+			log.warn("Failed to acquire lock for itemId: {}", itemId);
+			throw new ConcurrentBidException("Another bid is being processed. Please retry.");
+		}
 
-  @Override
-  @Transactional(readOnly = true)
-  public List<Item> findPendingItemsToStart() {
-    log.debug("Finding pending items ready to start");
-    return itemRepository.findByStatusAndStartTimeLessThanEqual(ItemStatus.PENDING,
-        Instant.now());
-  }
+		try {
+			log.debug("updateCurrentPriceWithLock - lock acquired for itemId: {}", itemId);
+			Item item = itemRepository.findById(itemId)
+				.orElseThrow(() -> new ItemNotFoundException(itemId));
 
-  /**
-   * Retrieve active items whose end time has passed.
-   *
-   * @return a list of items in `ACTIVE` status with `endTime` before the current time; empty list if none
-   */
-  @Override
-  @Transactional(readOnly = true)
-  public List<Item> findActiveItemsToEnd() {
-    log.debug("Finding active items ready to end");
-    return itemRepository.findByStatusAndEndTimeBefore(ItemStatus.ACTIVE, Instant.now());
-  }
+			// Defensive validation: ensure new price is actually higher
+			if (newPrice.compareTo(item.getCurrentPrice()) <= 0) {
+				log.warn("Invalid price update attempt - itemId: {}, currentPrice: {}, attemptedPrice: {}",
+					itemId, item.getCurrentPrice(), newPrice);
+				throw new IllegalArgumentException(
+					"New price must be greater than current price. Current: " + item.getCurrentPrice() +
+						", Attempted: " + newPrice
+				);
+			}
 
-  // ==================== PRIVATE HELPER METHODS ====================
+			item.setCurrentPrice(newPrice);
+			item.setWinnerId(winnerId);
+			itemRepository.save(item);
+			log.info("updateCurrentPriceWithLock - updated currentPrice and winnerId for itemId: {} to {}, winner: {}",
+				itemId, newPrice, winnerId);
+		} finally {
+			String currentToken = redisTemplate.opsForValue().get(lockKey);
+			if (lockToken.equals(currentToken)) {
+				redisTemplate.delete(lockKey);
+				log.debug("updateCurrentPriceWithLock - lock released for itemId: {}", itemId);
+			} else {
+				log.warn(
+					"updateCurrentPriceWithLock - lock expired or was re-acquired by another process. Did not release. itemId: {}",
+					itemId);
+			}
+		}
+	}
 
-  /**
-   * Publish an AuctionStartedEvent for the given item to notify downstream services.
-   *
-   * @param item the item whose auction has started; its id, seller, title, start time, and starting price are included in the event payload
-   */
-  private void publishAuctionStartedEvent(Item item) {
-    AuctionStartedEvent event = AuctionStartedEvent.create(
-        item.getId(),
-        item.getSellerId(),
-        item.getTitle(),
-        item.getStartTime(),
-        item.getStartingPrice()
-    );
+	/**
+	 * Check whether the specified item is currently active.
+	 *
+	 * @param itemId the database identifier of the item to check
+	 * @return `true` if the item is active, `false` otherwise
+	 */
 
-    eventPublisher.publish(event);
+	@Override
+	@Transactional(readOnly = true)
+	public boolean isItemActive(Long itemId) {
+		log.debug("Checking if item is active: {}", itemId);
+		return itemRepository.isItemActiveById(itemId);
+	}
 
-    log.debug("Published AuctionStartedEvent - itemId: {}, title: '{}', startingPrice: {}, eventId: {}",
-        event.data().itemId(), event.data().title(), event.data().startingPrice(), event.eventId());
-  }
+	/**
+	 * Retrieve items with status PENDING whose start time is now or earlier.
+	 *
+	 * @return a list of Item entities in PENDING status with startTime <= now; an empty list if
+	 * none are found
+	 */
 
-  /**
-   * Publish an AuctionEndedEvent for the given item to notify downstream services.
-   *
-   * The published event carries the item's id, seller id, title, end time, and final price.
-   * The `winnerId` field is currently set to `null` until the bidding service is integrated.
-   *
-   * @param item the item whose auction has ended; its end time and final price will be included in the event
-   */
-  private void publishAuctionEndedEvent(Item item) {
-    AuctionEndedEvent event = AuctionEndedEvent.create(
-        item.getId(),
-        item.getSellerId(),
-        item.getTitle(),
-        item.getEndTime(),
-        item.getCurrentPrice(),
-        null  // TODO: Query Bidding Service to get winnerId once integrated
-    );
+	@Override
+	@Transactional(readOnly = true)
+	public List<Item> findPendingItemsToStart() {
+		log.debug("Finding pending items ready to start");
+		return itemRepository.findByStatusAndStartTimeLessThanEqual(ItemStatus.PENDING,
+			Instant.now());
+	}
 
-    eventPublisher.publish(event);
+	/**
+	 * Retrieve active items whose end time has passed.
+	 *
+	 * @return a list of items in `ACTIVE` status with `endTime` before the current time; empty list
+	 * if none
+	 */
+	@Override
+	@Transactional(readOnly = true)
+	public List<Item> findActiveItemsToEnd() {
+		log.debug("Finding active items ready to end");
+		return itemRepository.findByStatusAndEndTimeBefore(ItemStatus.ACTIVE, Instant.now());
+	}
 
-    log.debug("Published AuctionEndedEvent - itemId: {}, title: '{}', finalPrice: {}, winnerId: {}, eventId: {}",
-        event.data().itemId(), event.data().title(), event.data().finalPrice(),
-        event.data().winnerId(), event.eventId());
-  }
+	// ==================== PRIVATE HELPER METHODS ====================
+
+	/**
+	 * Publish an AuctionStartedEvent for the given item to notify downstream services.
+	 *
+	 * @param item the item whose auction has started; its id, seller, title, start time, and
+	 *             starting price are included in the event payload
+	 */
+	private void publishAuctionStartedEvent(Item item) {
+		AuctionStartedEvent event = AuctionStartedEvent.create(item.getId(), item.getSellerId(),
+			item.getTitle(), item.getStartTime(), item.getStartingPrice());
+
+		eventPublisher.publish(event);
+
+		log.debug(
+			"Published AuctionStartedEvent - itemId: {}, title: '{}', startingPrice: {}, eventId: {}",
+			event.data().itemId(), event.data().title(), event.data().startingPrice(),
+			event.eventId());
+	}
+
+	/**
+	 * Publish an AuctionEndedEvent for the given item to notify downstream services.
+	 * <p>
+	 * The published event carries the item's id, seller id, title, end time, final price, and winnerId
+	 * (the UUID of the highest bidder, or null if no bids were placed).
+	 *
+	 * @param item the item whose auction has ended; its end time, final price, and winnerId will be
+	 *             included in the event
+	 */
+	private void publishAuctionEndedEvent(Item item) {
+		AuctionEndedEvent event = AuctionEndedEvent.create(
+			item.getId(),
+			item.getSellerId(),
+			item.getTitle(),
+			item.getEndTime(),
+			item.getCurrentPrice(),
+			item.getWinnerId()  // Now properly tracked via BidPlacedEvent consumption
+		);
+
+		eventPublisher.publish(event);
+
+		log.debug(
+			"Published AuctionEndedEvent - itemId: {}, title: '{}', finalPrice: {}, winnerId: {}, eventId: {}",
+			event.data().itemId(), event.data().title(), event.data().finalPrice(),
+			event.data().winnerId(), event.eventId());
+	}
 }

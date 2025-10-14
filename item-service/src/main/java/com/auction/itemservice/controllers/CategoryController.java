@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,6 +19,7 @@ import java.util.List;
  * Note: This is a simple read-only controller for now. In production, you might want admin-only
  * endpoints for creating/updating categories.
  */
+@Validated
 @Slf4j
 @RestController
 @RequestMapping("/api/categories")
