@@ -168,12 +168,13 @@ public class BidServiceImpl implements BidService {
    * has `isCurrentHighest` set to `false` (this method does not reflect current standing).
    *
    * @param bidderId the UUID of the bidder whose bids to fetch
+   * @param authenticatedUserId the UUID of the authenticated user
    * @param pageable pagination and sorting information
    * @return a page of `BidResponse` objects representing the bidder's historical bids
    */
   @Override
   @Transactional(readOnly = true)
-  public Page<BidResponse> getUserBids(UUID bidderId, Pageable pageable) {
+  public Page<BidResponse> getUserBids(UUID bidderId, UUID authenticatedUserId, Pageable pageable) {
     //
     // Steps:
     // 1. Log query (debug level)
@@ -184,6 +185,11 @@ public class BidServiceImpl implements BidService {
     // 4. Return mapped page
     //
     // Note: This is a simple history view, not "current standing" dashboard
+
+	  if (!bidderId.equals(authenticatedUserId)) {
+	//	  TODO: throw a security exception
+	  }
+
     log.debug("getUserBids - bidderId: {}", bidderId);
     Page<Bid> bids = bidRepository.findByBidderId(bidderId, pageable);
     return bids.map(bidMapper::toBidResponseAsHistorical);
@@ -194,12 +200,13 @@ public class BidServiceImpl implements BidService {
    *
    * @param itemId   the identifier of the item
    * @param bidderId the identifier of the bidder whose bids to retrieve
+   * @param authenticatedUserId the UUID of the authenticated user
    * @param pageable pagination and sorting information
    * @return a page of BidResponse objects for the given item and bidder; each entry has `isCurrentHighest` set to `true` when that bid is the current highest for the item, `false` otherwise
    */
   @Override
   @Transactional(readOnly = true)
-  public Page<BidResponse> getUserBidsForItem(Long itemId, UUID bidderId, Pageable pageable) {
+  public Page<BidResponse> getUserBidsForItem(Long itemId, UUID bidderId, UUID authenticatedUserId, Pageable pageable) {
     //
     // Steps:
     // 1. Log query (debug level)
@@ -210,6 +217,11 @@ public class BidServiceImpl implements BidService {
     //    - For each bid: check if bid.getId().equals(highestBidId)
     //    - Call bidMapper.toBidResponse(bid, isCurrentHighest)
     // 6. Return mapped page
+
+	  if (!bidderId.equals(authenticatedUserId)) {
+		  //	  TODO: throw a security exception
+	  }
+
     log.debug("getUserBidsForItem - itemId: {}, bidderId: {}", itemId, bidderId);
     Page<Bid> bids = bidRepository.findByItemIdAndBidderId(itemId, bidderId, pageable);
     Long highestBidId = bidRepository.findFirstByItemIdOrderByBidAmountDesc(itemId)
@@ -248,12 +260,17 @@ public class BidServiceImpl implements BidService {
    */
   @Override
   @Transactional(readOnly = true)
-  public List<Long> getItemsUserHasBidOn(UUID bidderId) {
+  public List<Long> getItemsUserHasBidOn(UUID bidderId, UUID authenticatedUserId) {
     //
     // Steps:
     // 1. Log query (debug level)
     // 2. Query: findDistinctItemIdsByBidderId(bidderId) → List<Long>
     // 3. Return list
+
+	  if (!bidderId.equals(authenticatedUserId)) {
+		  //	  TODO: throw a security exception
+	  }
+
     log.debug("getItemsUserHasBidOn - bidderId: {}", bidderId);
     List<Long> itemIds = bidRepository.findDistinctItemIdsByBidderId(bidderId);
     log.debug("getItemsUserHasBidOn - itemIds: {}", itemIds);

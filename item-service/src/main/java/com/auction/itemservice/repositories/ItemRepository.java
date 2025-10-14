@@ -2,13 +2,13 @@ package com.auction.itemservice.repositories;
 
 import com.auction.itemservice.models.Item;
 import com.auction.itemservice.models.ItemStatus;
+import java.time.Instant;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -49,7 +49,7 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
  * @param endTime cutoff; items with an end time strictly before this value are returned
  * @return a list of items matching the status whose end time is before the cutoff
  */
-  List<Item> findByStatusAndEndTimeBefore(ItemStatus status, LocalDateTime endTime);
+  List<Item> findByStatusAndEndTimeBefore(ItemStatus status, Instant endTime);
 
   /**
  * Retrieve all items with the given status whose start time is less than or equal to the specified cutoff.
@@ -60,7 +60,7 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
  * @param startTime the inclusive cutoff start time
  * @return a list of items matching the status with startTime <= the specified cutoff
  */
-  List<Item> findByStatusAndStartTimeLessThanEqual(ItemStatus status, LocalDateTime startTime);
+  List<Item> findByStatusAndStartTimeLessThanEqual(ItemStatus status, Instant startTime);
 
   /**
  * Retrieve a paginated list of items for a given seller filtered by status.

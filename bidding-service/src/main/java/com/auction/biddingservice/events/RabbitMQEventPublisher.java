@@ -41,13 +41,12 @@ public class RabbitMQEventPublisher implements EventPublisher {
 
   private final RabbitTemplate rabbitTemplate;
 
-  private static final String EXCHANGE_NAME = "auction-events";
   private static final String ROUTING_KEY_PREFIX = "bidding.";
 
   /**
    * Publishes the given event using a routing key derived from the event's class name.
    *
-   * The routing key is formed by removing a trailing "Event" from the class name, converting
+   * <p>The routing key is formed by removing a trailing "Event" from the class name, converting
    * the resulting CamelCase name to kebab-case, and prefixing it with "bidding." (for example,
    * a class named `BidPlacedEvent` yields `bidding.bid-placed`).
    *
@@ -70,11 +69,11 @@ public class RabbitMQEventPublisher implements EventPublisher {
   @Override
   public <T> void publish(T event, String routingKey) {
     try {
-      log.debug("Publishing event - exchange: {}, routingKey: {}, event: {}", EXCHANGE_NAME,
+      log.debug("Publishing event - exchange: {}, routingKey: {}, event: {}", rabbitTemplate.getExchange(),
           routingKey, event.getClass().getSimpleName());
 
       // Pass event object directly - Jackson2JsonMessageConverter handles serialization
-      rabbitTemplate.convertAndSend(EXCHANGE_NAME, routingKey, event);
+      rabbitTemplate.convertAndSend(routingKey, event);
 
       log.info("Event published successfully - type: {}, routingKey: {}",
           event.getClass().getSimpleName(), routingKey);
@@ -90,7 +89,7 @@ public class RabbitMQEventPublisher implements EventPublisher {
   /**
    * Constructs the RabbitMQ routing key for an event class name.
    *
-   * Removes a trailing "Event" suffix if present, converts CamelCase to kebab-case
+   * <p>Removes a trailing "Event" suffix if present, converts CamelCase to kebab-case
    * (lowercase with words separated by hyphens), and prefixes the result with
    * the configured routing key prefix.
    *

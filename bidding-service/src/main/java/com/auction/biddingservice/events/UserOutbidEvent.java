@@ -1,7 +1,7 @@
 package com.auction.biddingservice.events;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -19,7 +19,7 @@ import java.util.UUID;
  * <p>Privacy Note: - oldBidderId is included so consumers can notify the specific user -
  * newBidderId may be hidden in client-facing notifications to prevent bid sniping strategies
  */
-public record UserOutbidEvent(String eventId, String eventType, LocalDateTime timestamp,
+public record UserOutbidEvent(String eventId, String eventType, Instant timestamp,
                               UserOutbidData data) {
 
   /**
@@ -29,12 +29,11 @@ public record UserOutbidEvent(String eventId, String eventType, LocalDateTime ti
    * @param oldBidderId UUID of the user who was outbid
    * @param newBidderId UUID of the user who placed the new highest bid
    * @param newAmount   the new highest bid amount
-   * @return a UserOutbidEvent populated with event metadata and outbid data
+   * @return a UserOutbidEvent populated with event metadata and UTC timestamp
    */
-  // TODO: zone aware timestamp?
   public static UserOutbidEvent create(Long itemId, UUID oldBidderId, UUID newBidderId,
       BigDecimal newAmount) {
-    return new UserOutbidEvent(UUID.randomUUID().toString(), "UserOutbidEvent", LocalDateTime.now(),
+    return new UserOutbidEvent(UUID.randomUUID().toString(), "UserOutbidEvent", Instant.now(),
         new UserOutbidData(itemId, oldBidderId, newBidderId, newAmount));
   }
 

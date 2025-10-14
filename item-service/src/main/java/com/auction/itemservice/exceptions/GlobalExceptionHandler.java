@@ -1,14 +1,15 @@
 package com.auction.itemservice.exceptions;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -145,7 +146,7 @@ public class GlobalExceptionHandler {
   /**
    * Convert a MethodArgumentNotValidException into a 400 Bad Request ErrorResponse containing field-level validation messages.
    *
-   * Populates the response's fieldErrors with a map of field names to their validation messages and includes the request URI.
+   * <p>Populates the response's fieldErrors with a map of field names to their validation messages and includes the request URI.
    *
    * @param ex the validation exception containing binding results with field errors
    * @param request the HTTP request used to extract the request URI for the response
@@ -159,9 +160,8 @@ public class GlobalExceptionHandler {
     Map<String, String> fieldErrors = new HashMap<>();
 
     // Extract field-level errors
-    for (FieldError error : ex.getBindingResult().getFieldErrors()) {
-      fieldErrors.put(error.getField(), error.getDefaultMessage());
-    }
+	  ex.getBindingResult().getFieldErrors()
+		  .forEach(error -> fieldErrors.put(error.getField(), error.getDefaultMessage()));
 
     log.warn("Validation failed - path: {}, errors: {}", request.getRequestURI(), fieldErrors);
 
@@ -177,9 +177,89 @@ public class GlobalExceptionHandler {
   }
 
   /**
+   * Handle validation errors on method parameters (path variables, request params).
+   *
+   * <p>Triggered when @Valid or validation annotations (@NotNull, @Min, etc.) are placed
+   * directly on controller method parameters rather than on request body objects.
+   *
+   * @param ex the ConstraintViolationException containing all validation violations
+   * @param request the HTTP request whose URI is included in the error response
+   * @return an ErrorResponse with HTTP status 400, error "Validation Failed", field-level errors,
+   *         and the request URI
+   */
+  @ExceptionHandler(ConstraintViolationException.class)
+  public ResponseEntity<ErrorResponse> handleConstraintViolation(
+      ConstraintViolationException ex,
+      HttpServletRequest request
+  ) {
+    Map<String, String> fieldErrors = new HashMap<>();
+
+    // Extract clean field name and message from each violation
+    ex.getConstraintViolations().forEach(violation -> {
+      String fullPath = violation.getPropertyPath().toString();
+      String field = fullPath.contains(".")
+          ? fullPath.substring(fullPath.lastIndexOf('.') + 1)
+          : fullPath;
+      fieldErrors.put(field, violation.getMessage());
+    });
+
+    log.warn("Constraint violation - path: {}, errors: {}", request.getRequestURI(), fieldErrors);
+
+    ErrorResponse error = new ErrorResponse(
+        HttpStatus.BAD_REQUEST.value(),
+        "Validation Failed",
+        "Input validation failed. Check fieldErrors for details.",
+        request.getRequestURI(),
+        fieldErrors
+    );
+
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+  }
+
+  /**
+   * Handle type conversion failures for path variables and request parameters.
+   *
+   * <p>Triggered when Spring cannot convert a String parameter to the expected type
+   * (e.g., "abc" for Long, "invalid-uuid" for UUID, "not-a-date" for Instant).
+   *
+   * @param ex the MethodArgumentTypeMismatchException describing the conversion failure
+   * @param request the HTTP request whose URI is included in the error response
+   * @return an ErrorResponse with HTTP status 400, error "Bad Request", a user-friendly message
+   *         describing the parameter name and expected type, and the request URI
+   */
+  @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+  public ResponseEntity<ErrorResponse> handleTypeMismatch(
+      MethodArgumentTypeMismatchException ex,
+      HttpServletRequest request
+  ) {
+    String paramName = ex.getName();
+    String paramValue = String.valueOf(ex.getValue());
+    String expectedType = ex.getRequiredType() != null
+        ? ex.getRequiredType().getSimpleName()
+        : "unknown";
+
+    String message = String.format(
+        "Invalid value '%s' for parameter '%s'. Expected type: %s",
+        paramValue, paramName, expectedType
+    );
+
+    log.warn("Type mismatch - path: {}, param: {}, value: {}, expectedType: {}",
+        request.getRequestURI(), paramName, paramValue, expectedType);
+
+    ErrorResponse error = new ErrorResponse(
+        HttpStatus.BAD_REQUEST.value(),
+        BAD_REQUEST,
+        message,
+        request.getRequestURI()
+    );
+
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+  }
+
+  /**
    * Convert JSON deserialization failures into a standardized 400 Bad Request ErrorResponse.
    *
-   * Extracts a user-facing message from the exception cause chain when available (for example,
+   * <p>Extracts a user-facing message from the exception cause chain when available (for example,
    * validation errors propagated as IllegalArgumentException) and returns an ErrorResponse
    * containing the HTTP status, error label, message, and request URI.
    *

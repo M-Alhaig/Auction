@@ -135,13 +135,15 @@ public class BidController {
   @GetMapping("/users/{bidderId}")
   public ResponseEntity<Page<BidResponse>> getUserBids(
       @PathVariable UUID bidderId,
+      @RequestHeader("X-Auth-Id") String authId,
       @PageableDefault(page = 0, size = 20, sort = "timestamp", direction = Sort.Direction.DESC)
       Pageable pageable) {
 
-    log.debug("GET /api/bids/users/{} - page: {}, size: {}",
-        bidderId, pageable.getPageNumber(), pageable.getPageSize());
+    UUID authenticatedUserId = UUID.fromString(authId);
+    log.debug("GET /api/bids/users/{} - authenticatedUser: {}, page: {}, size: {}",
+        bidderId, authenticatedUserId, pageable.getPageNumber(), pageable.getPageSize());
 
-    Page<BidResponse> response = bidService.getUserBids(bidderId, pageable);
+    Page<BidResponse> response = bidService.getUserBids(bidderId, authenticatedUserId, pageable);
 
     log.debug("Returning {} bids for bidderId: {}", response.getNumberOfElements(), bidderId);
 
@@ -164,13 +166,15 @@ public class BidController {
   public ResponseEntity<Page<BidResponse>> getUserBidsForItem(
       @PathVariable Long itemId,
       @PathVariable UUID bidderId,
+      @RequestHeader("X-Auth-Id") String authId,
       @PageableDefault(page = 0, size = 20, sort = "timestamp", direction = Sort.Direction.DESC)
       Pageable pageable) {
 
-    log.debug("GET /api/bids/items/{}/users/{} - page: {}, size: {}",
-        itemId, bidderId, pageable.getPageNumber(), pageable.getPageSize());
+    UUID authenticatedUserId = UUID.fromString(authId);
+    log.debug("GET /api/bids/items/{}/users/{} - authenticatedUser: {}, page: {}, size: {}",
+        itemId, bidderId, authenticatedUserId, pageable.getPageNumber(), pageable.getPageSize());
 
-    Page<BidResponse> response = bidService.getUserBidsForItem(itemId, bidderId, pageable);
+    Page<BidResponse> response = bidService.getUserBidsForItem(itemId, bidderId, authenticatedUserId, pageable);
 
     log.debug("Returning {} bids for itemId: {}, bidderId: {}",
         response.getNumberOfElements(), itemId, bidderId);
@@ -205,11 +209,14 @@ public class BidController {
    * @return list of item IDs the user has bid on; may be empty
    */
   @GetMapping("/users/{bidderId}/items")
-  public ResponseEntity<List<Long>> getItemsUserHasBidOn(@PathVariable UUID bidderId) {
+  public ResponseEntity<List<Long>> getItemsUserHasBidOn(
+      @PathVariable UUID bidderId,
+      @RequestHeader("X-Auth-Id") String authId) {
 
-    log.debug("GET /api/bids/users/{}/items", bidderId);
+    UUID authenticatedUserId = UUID.fromString(authId);
+    log.debug("GET /api/bids/users/{}/items - authenticatedUser: {}", bidderId, authenticatedUserId);
 
-    List<Long> itemIds = bidService.getItemsUserHasBidOn(bidderId);
+    List<Long> itemIds = bidService.getItemsUserHasBidOn(bidderId, authenticatedUserId);
 
     log.debug("Returning {} items for bidderId: {}", itemIds.size(), bidderId);
 

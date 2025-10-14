@@ -1,6 +1,7 @@
 package com.auction.itemservice.models;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
@@ -19,6 +20,7 @@ public class Category {
   private Integer id;
 
   @Column(unique = true, nullable = false, length = 100)
+  @NotBlank
   private String name;
 
   /**

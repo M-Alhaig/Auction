@@ -5,6 +5,7 @@ import com.auction.itemservice.repositories.CategoryRepository;
 import com.auction.itemservice.services.ItemMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,7 +36,8 @@ public class CategoryController {
   public ResponseEntity<List<CategoryResponse>> getAllCategories() {
     log.debug("GET /api/categories - Fetching all categories");
 
-    List<CategoryResponse> categories = categoryRepository.findAll()
+	  List<CategoryResponse> categories = categoryRepository.findAll(
+			  Sort.by(Sort.Direction.ASC, "name"))
         .stream()
         .map(itemMapper::toCategoryResponse)
         .toList();

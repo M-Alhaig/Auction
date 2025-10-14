@@ -1,7 +1,7 @@
 package com.auction.biddingservice.events;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -16,7 +16,7 @@ import java.util.UUID;
  *
  * <p>Routing Key Pattern: "bidding.bid-placed"
  */
-public record BidPlacedEvent(String eventId, String eventType, LocalDateTime timestamp,
+public record BidPlacedEvent(String eventId, String eventType, Instant timestamp,
                              BidPlacedData data) {
 
   /**
@@ -25,13 +25,12 @@ public record BidPlacedEvent(String eventId, String eventType, LocalDateTime tim
    * @param itemId      the identifier of the auction item
    * @param bidderId    the identifier of the bidder placing the bid
    * @param bidAmount   the monetary amount of the bid
-   * @param bidTimestamp the time when the bid was placed (may differ from the event publish timestamp)
-   * @return            a BidPlacedEvent whose eventId is generated and whose timestamp is set to the current time; its data payload contains the provided bid details
+   * @param bidTimestamp the time when the bid was placed (may differ from the event publish timestamp), stored in UTC
+   * @return            a BidPlacedEvent whose eventId is generated and whose timestamp is set to the current UTC time; its data payload contains the provided bid details
    */
-  // TODO: zone aware timestamp?
   public static BidPlacedEvent create(Long itemId, UUID bidderId, BigDecimal bidAmount,
-      LocalDateTime bidTimestamp) {
-    return new BidPlacedEvent(UUID.randomUUID().toString(), "BidPlacedEvent", LocalDateTime.now(),
+      Instant bidTimestamp) {
+    return new BidPlacedEvent(UUID.randomUUID().toString(), "BidPlacedEvent", Instant.now(),
         new BidPlacedData(itemId, bidderId, bidAmount, bidTimestamp));
   }
 
@@ -39,7 +38,7 @@ public record BidPlacedEvent(String eventId, String eventType, LocalDateTime tim
    * Payload data for BidPlacedEvent.
    */
   public record BidPlacedData(Long itemId, UUID bidderId, BigDecimal bidAmount,
-                              LocalDateTime bidTimestamp) {
+                              Instant bidTimestamp) {
 
   }
 

@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -262,7 +262,7 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
   public List<Item> findPendingItemsToStart() {
     log.debug("Finding pending items ready to start");
     return itemRepository.findByStatusAndStartTimeLessThanEqual(ItemStatus.PENDING,
-        LocalDateTime.now());
+        Instant.now());
   }
 
   /**
@@ -274,7 +274,7 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
   @Transactional(readOnly = true)
   public List<Item> findActiveItemsToEnd() {
     log.debug("Finding active items ready to end");
-    return itemRepository.findByStatusAndEndTimeBefore(ItemStatus.ACTIVE, LocalDateTime.now());
+    return itemRepository.findByStatusAndEndTimeBefore(ItemStatus.ACTIVE, Instant.now());
   }
 
   // ==================== PRIVATE HELPER METHODS ====================
