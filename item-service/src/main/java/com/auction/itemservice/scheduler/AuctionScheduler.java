@@ -57,7 +57,7 @@ public class AuctionScheduler {
 	 * End active auctions whose configured end time has been reached.
 	 *
 	 * <p>Scheduled with a 60-second fixed delay and protected by a distributed lock named
-	 * "startPendingAuctions" (lockAtMostFor = "50s", lockAtLeastFor = "10s") to ensure only one
+	 * "endActiveAuctions" (lockAtMostFor = "50s", lockAtLeastFor = "10s") to ensure only one
 	 * application instance processes the batch and to bound lock duration.
 	 *
 	 * <p>Default lock duration is set to 50 seconds to accommodate the longest expected task

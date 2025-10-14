@@ -194,11 +194,14 @@ public class GlobalExceptionHandler {
   ) {
     Map<String, String> fieldErrors = new HashMap<>();
 
-    // Extract property path and message from each violation
-    ex.getConstraintViolations().forEach(violation -> fieldErrors.put(
-        violation.getPropertyPath().toString(),
-        violation.getMessage()
-    ));
+    // Extract clean field name and message from each violation
+    ex.getConstraintViolations().forEach(violation -> {
+      String fullPath = violation.getPropertyPath().toString();
+      String field = fullPath.contains(".")
+          ? fullPath.substring(fullPath.lastIndexOf('.') + 1)
+          : fullPath;
+      fieldErrors.put(field, violation.getMessage());
+    });
 
     log.warn("Constraint violation - path: {}, errors: {}", request.getRequestURI(), fieldErrors);
 
