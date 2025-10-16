@@ -154,7 +154,7 @@ public class RabbitMQConfig {
 		// Apply default Spring Boot configuration
 		configurer.configure(factory, connectionFactory);
 
-		// Configure retry template with non-retryable exceptions
+		// Configure the retry template with non-retryable exceptions
 		RetryTemplate retryTemplate = new RetryTemplate();
 
 		// Retry policy: max 3 attempts, but NOT for permanent errors

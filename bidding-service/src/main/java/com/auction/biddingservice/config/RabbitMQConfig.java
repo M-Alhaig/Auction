@@ -1,13 +1,22 @@
 package com.auction.biddingservice.config;
 
+import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.amqp.SimpleRabbitListenerContainerFactoryConfigurer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.retry.backoff.ExponentialBackOffPolicy;
+import org.springframework.retry.policy.SimpleRetryPolicy;
+import org.springframework.retry.support.RetryTemplate;
 
 /**
  * RabbitMQ configuration for Bidding Service. Declares the topic exchange used for publishing bid
@@ -29,7 +38,9 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMQConfig {
 
-  @Value("${rabbitmq.exchange.name}")
+	public static final String BIDDING_SERVICE_AUCTION_QUEUE_DLQ = "BiddingServiceAuctionQueue.dlq";
+	public static final String AUCTION_ENDED = "item.auction-ended";
+	@Value("${rabbitmq.exchange.name}")
   private String exchangeName;
 
   /**
@@ -54,6 +65,25 @@ public class RabbitMQConfig {
     );
   }
 
+  @Bean
+  public Queue queue() {
+    return QueueBuilder
+		.durable("BiddingServiceAuctionQueue")
+		.deadLetterExchange("")
+		.deadLetterRoutingKey(BIDDING_SERVICE_AUCTION_QUEUE_DLQ)
+		.build();
+  }
+
+  @Bean
+  public Queue deadLetterQueue() {
+	  return QueueBuilder.durable(BIDDING_SERVICE_AUCTION_QUEUE_DLQ).build();
+  }
+
+  @Bean
+  public Binding binding(Queue queue, TopicExchange exchange) {
+    return BindingBuilder.bind(queue).to(exchange).with(AUCTION_ENDED);
+  }
+
   /**
    * Create and configure a RabbitTemplate that serializes messages as JSON using Jackson.
    *
@@ -76,4 +106,32 @@ public class RabbitMQConfig {
   public MessageConverter jsonMessageConverter() {
     return new Jackson2JsonMessageConverter();
   }
+
+  @Bean
+  public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory,
+	  SimpleRabbitListenerContainerFactoryConfigurer configurer) {
+
+	  SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+
+	  configurer.configure(factory, connectionFactory);
+
+	  RetryTemplate retryTemplate = new RetryTemplate();
+
+	  SimpleRetryPolicy retryPolicy = new SimpleRetryPolicy(3);
+
+	  retryTemplate.setRetryPolicy(retryPolicy);
+
+	  ExponentialBackOffPolicy backOffPolicy = new ExponentialBackOffPolicy();
+	  backOffPolicy.setInitialInterval(100);
+	  backOffPolicy.setMultiplier(1.5);
+	  backOffPolicy.setMaxInterval(500);
+	  retryTemplate.setBackOffPolicy(backOffPolicy);
+
+	  factory.setRetryTemplate(retryTemplate);
+	  factory.setMessageConverter(jsonMessageConverter());
+
+	  return factory;
+  }
+
+
 }
