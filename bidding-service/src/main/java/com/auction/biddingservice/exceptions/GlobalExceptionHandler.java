@@ -227,7 +227,7 @@ public class GlobalExceptionHandler {
 		HttpServletRequest request) {
 		log.warn("Auction ended - path: {}, message: {}", request.getRequestURI(), ex.getMessage());
 
-		ErrorResponse error = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), BAD_REQUEST,
+		ErrorResponse error = new ErrorResponse(HttpStatus.CONFLICT.value(), "Auction Ended",
 			ex.getMessage(), request.getRequestURI());
 
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
