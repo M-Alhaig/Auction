@@ -77,7 +77,8 @@ public class BidServiceImpl implements BidService {
     log.debug("placeBid - itemId: {}, bidderId: {}, bidAmount: {}", itemId, bidderId, bidAmount);
 
 	if (auctionCacheService.isAuctionEnded(itemId)) {
-		throw new AuctionEndedException(itemId, Instant.now());
+		Instant endTime = auctionCacheService.getAuctionEndTime(itemId);
+		throw new AuctionEndedException(itemId, endTime);
 	}
 
     return executeWithLock(itemId, () -> {
