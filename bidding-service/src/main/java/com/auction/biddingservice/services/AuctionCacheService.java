@@ -1,5 +1,6 @@
 package com.auction.biddingservice.services;
 
+import java.time.Duration;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,12 +12,14 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AuctionCacheService {
 
-	public static final String AUCTION_ENDTIME_KEY_PREFIX = "auction:endtime:";
 	private final RedisTemplate<String, String> redisTemplate;
+
+	private static final Duration LOCK_TIMEOUT = Duration.ofDays(7);
+	public static final String AUCTION_ENDTIME_KEY_PREFIX = "auction:endtime:";
 
 	public void markAuctionEnded(Long itemId, Instant endTime) {
 
-		redisTemplate.opsForValue().set(AUCTION_ENDTIME_KEY_PREFIX + itemId, endTime.toString());
+		redisTemplate.opsForValue().set(AUCTION_ENDTIME_KEY_PREFIX + itemId, endTime.toString(), LOCK_TIMEOUT);
 		log.info("Auction {} ended at {}", itemId, endTime);
 	}
 	public boolean isAuctionEnded(Long itemId) {

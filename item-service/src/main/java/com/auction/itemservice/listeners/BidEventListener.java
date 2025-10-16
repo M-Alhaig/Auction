@@ -43,7 +43,7 @@ public class BidEventListener {
 
 		// Check if already processed (idempotency)
 		Boolean alreadyProcessed = redisTemplate.hasKey(lockKey);
-		if (alreadyProcessed) {
+		if (Boolean.TRUE.equals(alreadyProcessed)) {
 			log.info("Event already processed successfully - eventId: {}, skipping", event.eventId());
 			return;
 		}
