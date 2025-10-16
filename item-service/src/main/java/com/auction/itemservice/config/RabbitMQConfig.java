@@ -43,8 +43,8 @@ import java.util.Map;
 public class RabbitMQConfig {
 
 	public static final String BIDDING_BID_PLACED = "bidding.bid-placed";
-	public static final String QUEUE_NAME = "ItemServiceBidQueue";
-	public static final String DLQ_NAME = "ItemServiceBidQueue.dlq";
+	public static final String ITEM_SERVICE_BID_QUEUE = "ItemServiceBidQueue";
+	public static final String ITEM_SERVICE_BID_QUEUE_DLQ = "ItemServiceBidQueue.dlq";
 
 	@Value("${rabbitmq.exchange.name}")
 	private String exchangeName;
@@ -65,37 +65,64 @@ public class RabbitMQConfig {
 	}
 
 	/**
-	 * Main queue for BidPlacedEvent consumption with Dead Letter Queue configuration.
+	 * Creates the main queue for consuming BidPlacedEvent messages.
 	 *
-	 * <p>After 3 failed delivery attempts, messages are routed to the DLQ for manual inspection.
-	 * This prevents poison pill messages from blocking the queue indefinitely.
+	 * <p>Queue Configuration:
+	 * <ul>
+	 *   <li>Queue name: "ItemServiceBidQueue"</li>
+	 *   <li>Durable: true (survives RabbitMQ broker restarts)</li>
+	 *   <li>Dead Letter Exchange: "" (default exchange)</li>
+	 *   <li>Dead Letter Routing Key: "ItemServiceBidQueue.dlq"</li>
+	 * </ul>
 	 *
-	 * @return configured Queue with DLQ routing
+	 * <p>Messages that fail after max retries (3 attempts) are automatically routed
+	 * to the dead letter queue for manual inspection.
+	 *
+	 * @return the configured Queue for bid placed events
 	 */
 	@Bean
-	public Queue queue() {
-		return QueueBuilder.durable(QUEUE_NAME)
+	public Queue itemServiceBidQueue() {
+		return QueueBuilder.durable(ITEM_SERVICE_BID_QUEUE)
 			.deadLetterExchange("")  // Default exchange
-			.deadLetterRoutingKey(DLQ_NAME)
+			.deadLetterRoutingKey(ITEM_SERVICE_BID_QUEUE_DLQ)
 			.build();
 	}
 
 	/**
-	 * Dead Letter Queue for failed BidPlacedEvent processing.
+	 * Creates the dead letter queue (DLQ) for failed BidPlacedEvent messages.
 	 *
-	 * <p>Messages that fail after max retries are moved here for manual inspection and debugging.
-	 * Monitor this queue's size - growth indicates systematic processing issues.
+	 * <p>Messages are routed here when:
+	 * <ul>
+	 *   <li>Processing fails after 3 retry attempts</li>
+	 *   <li>Permanent errors occur (ItemNotFoundException, IllegalArgumentException)</li>
+	 *   <li>Message cannot be deserialized</li>
+	 * </ul>
 	 *
-	 * @return the Dead Letter Queue
+	 * <p>Monitor this queue's size - growth indicates systematic processing issues
+	 * that require investigation.
+	 *
+	 * @return the configured Dead Letter Queue
 	 */
 	@Bean
-	public Queue deadLetterQueue() {
-		return QueueBuilder.durable(DLQ_NAME).build();
+	public Queue itemServiceBidDLQ() {
+		return QueueBuilder.durable(ITEM_SERVICE_BID_QUEUE_DLQ).build();
 	}
 
+	/**
+	 * Binds the item service bid queue to the auction-events exchange using the
+	 * routing key "bidding.bid-placed".
+	 *
+	 * <p>This binding ensures that when Bidding Service publishes BidPlacedEvent
+	 * with routing key "bidding.bid-placed", it will be routed to this service's
+	 * queue for processing.
+	 *
+	 * @param itemServiceBidQueue the queue to bind (injected by Spring)
+	 * @param exchange the topic exchange to bind to (injected by Spring)
+	 * @return the configured Binding
+	 */
 	@Bean
-	public Binding binding(Queue queue, TopicExchange exchange) {
-		return BindingBuilder.bind(queue).to(exchange).with(BIDDING_BID_PLACED);
+	public Binding bidPlacedBinding(Queue itemServiceBidQueue, TopicExchange exchange) {
+		return BindingBuilder.bind(itemServiceBidQueue).to(exchange).with(BIDDING_BID_PLACED);
 	}
 
 	/**

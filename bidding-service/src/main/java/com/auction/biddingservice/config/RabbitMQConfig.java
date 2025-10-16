@@ -38,6 +38,7 @@ import org.springframework.retry.support.RetryTemplate;
 @Configuration
 public class RabbitMQConfig {
 
+	public static final String BIDDING_SERVICE_AUCTION_QUEUE = "BiddingServiceAuctionQueue";
 	public static final String BIDDING_SERVICE_AUCTION_QUEUE_DLQ = "BiddingServiceAuctionQueue.dlq";
 	public static final String AUCTION_ENDED = "item.auction-ended";
 	@Value("${rabbitmq.exchange.name}")
@@ -65,23 +66,63 @@ public class RabbitMQConfig {
     );
   }
 
+  /**
+   * Creates the main queue for consuming AuctionEndedEvent messages.
+   *
+   * <p>Queue Configuration:
+   * <ul>
+   *   <li>Queue name: "BiddingServiceAuctionQueue"</li>
+   *   <li>Durable: true (survives RabbitMQ broker restarts)</li>
+   *   <li>Dead Letter Exchange: "" (default exchange)</li>
+   *   <li>Dead Letter Routing Key: "BiddingServiceAuctionQueue.dlq"</li>
+   * </ul>
+   *
+   * <p>Messages that fail after max retries (3 attempts) are automatically routed
+   * to the dead letter queue for manual inspection.
+   *
+   * @return the configured Queue for auction ended events
+   */
   @Bean
-  public Queue queue() {
+  public Queue auctionEndedQueue() {
     return QueueBuilder
-		.durable("BiddingServiceAuctionQueue")
+		.durable(BIDDING_SERVICE_AUCTION_QUEUE)
 		.deadLetterExchange("")
 		.deadLetterRoutingKey(BIDDING_SERVICE_AUCTION_QUEUE_DLQ)
 		.build();
   }
 
+  /**
+   * Creates the dead letter queue (DLQ) for failed AuctionEndedEvent messages.
+   *
+   * <p>Messages are routed here when:
+   * <ul>
+   *   <li>Processing fails after 3 retry attempts</li>
+   *   <li>Permanent errors occur (IllegalArgumentException)</li>
+   *   <li>Message cannot be deserialized</li>
+   * </ul>
+   *
+   * @return the configured Dead Letter Queue
+   */
   @Bean
-  public Queue deadLetterQueue() {
+  public Queue auctionEndedDLQ() {
 	  return QueueBuilder.durable(BIDDING_SERVICE_AUCTION_QUEUE_DLQ).build();
   }
 
+  /**
+   * Binds the auction ended queue to the auction-events exchange using the
+   * routing key "item.auction-ended".
+   *
+   * <p>This binding ensures that when Item Service publishes AuctionEndedEvent
+   * with routing key "item.auction-ended", it will be routed to this service's
+   * queue for processing.
+   *
+   * @param auctionEndedQueue the queue to bind (injected by Spring)
+   * @param exchange the topic exchange to bind to (injected by Spring)
+   * @return the configured Binding
+   */
   @Bean
-  public Binding binding(Queue queue, TopicExchange exchange) {
-    return BindingBuilder.bind(queue).to(exchange).with(AUCTION_ENDED);
+  public Binding auctionEndedBinding(Queue auctionEndedQueue, TopicExchange exchange) {
+    return BindingBuilder.bind(auctionEndedQueue).to(exchange).with(AUCTION_ENDED);
   }
 
   /**
@@ -107,6 +148,33 @@ public class RabbitMQConfig {
     return new Jackson2JsonMessageConverter();
   }
 
+  /**
+   * Creates a custom RabbitMQ listener container factory with retry policy that classifies
+   * exceptions as retryable or non-retryable.
+   *
+   * <p><strong>Non-Retryable Exceptions (permanent errors, move to DLQ immediately):</strong>
+   * <ul>
+   *   <li>IllegalArgumentException - Invalid event data (indicates bug in producer)</li>
+   * </ul>
+   *
+   * <p><strong>Retryable Exceptions (transient errors, retry with backoff):</strong>
+   * <ul>
+   *   <li>All other exceptions - Could be transient (Redis timeout, network issues)</li>
+   * </ul>
+   *
+   * <p><strong>Retry Configuration:</strong>
+   * <ul>
+   *   <li>Max attempts: 3</li>
+   *   <li>Initial interval: 100ms</li>
+   *   <li>Backoff multiplier: 1.5x</li>
+   *   <li>Max interval: 500ms</li>
+   *   <li>Total retry time: ~250ms (auction-critical timing)</li>
+   * </ul>
+   *
+   * @param connectionFactory the RabbitMQ connection factory
+   * @param configurer Spring Boot auto-configurer for default settings
+   * @return configured container factory with custom retry policy
+   */
   @Bean
   public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory,
 	  SimpleRabbitListenerContainerFactoryConfigurer configurer) {
@@ -117,10 +185,20 @@ public class RabbitMQConfig {
 
 	  RetryTemplate retryTemplate = new RetryTemplate();
 
-	  SimpleRetryPolicy retryPolicy = new SimpleRetryPolicy(3);
+	  // Classify exceptions: which ones should NOT be retried
+	  java.util.Map<Class<? extends Throwable>, Boolean> retryableExceptions = new java.util.HashMap<>();
+	  retryableExceptions.put(IllegalArgumentException.class, false);  // Don't retry - permanent error
+
+	  SimpleRetryPolicy retryPolicy = new SimpleRetryPolicy(
+		  3,  // max attempts
+		  retryableExceptions,
+		  true,  // traverseCauses = true (check exception cause chain)
+		  true   // defaultValue = true (retry by default for unlisted exceptions)
+	  );
 
 	  retryTemplate.setRetryPolicy(retryPolicy);
 
+	  // Exponential backoff: 100ms → 150ms → 225ms (auction-critical timing)
 	  ExponentialBackOffPolicy backOffPolicy = new ExponentialBackOffPolicy();
 	  backOffPolicy.setInitialInterval(100);
 	  backOffPolicy.setMultiplier(1.5);

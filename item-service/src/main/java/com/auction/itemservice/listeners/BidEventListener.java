@@ -20,14 +20,15 @@ public class BidEventListener {
 	private final ItemLifecycleServiceImpl itemLifecycleServiceImpl;
 	private final RedisTemplate<String, String> redisTemplate;
 
-	public static final String QUEUE_NAME = "ItemServiceBidQueue";
 	private static final Duration LOCK_TIMEOUT = Duration.ofHours(1);
 	private static final String LOCK_KEY_PREFIX = "lock:event:processed:";
 
 	/**
 	 * Consume BidPlacedEvent from RabbitMQ and update item price/winner.
 	 *
-	 * <p><strong>Idempotency:</strong> Lock is set AFTER successful processing to allow retries on failure.
+	 * <p><strong>Idempotency:</strong> Uses Redis to track processed event IDs (1-hour TTL) to
+	 * prevent duplicate processing if the message is redelivered. Lock is set AFTER successful
+	 * processing to allow retries on failure.
 	 *
 	 * <p><strong>Error Handling:</strong> Retry policy configured at container factory level:
 	 * <ul>
@@ -35,9 +36,12 @@ public class BidEventListener {
 	 *   <li>ConcurrentBidException, others: Retry with exponential backoff (3 attempts)</li>
 	 * </ul>
 	 *
+	 * <p><strong>Retry Policy:</strong> Up to 3 attempts with exponential backoff (100ms → 150ms → 225ms).
+	 * After max retries, message moves to dead letter queue (ItemServiceBidQueue.dlq).
+	 *
 	 * @param event the BidPlacedEvent from Bidding Service
 	 */
-	@RabbitListener(queues = QUEUE_NAME)
+	@RabbitListener(queues = "#{itemServiceBidQueue.name}")
 	public void onBidEvent(BidPlacedEvent event) {
 		String lockKey = LOCK_KEY_PREFIX + event.eventId();
 
