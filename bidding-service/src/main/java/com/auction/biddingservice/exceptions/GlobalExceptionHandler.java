@@ -222,6 +222,17 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
 	}
 
+	/**
+	 * Handle attempts to bid on an auction that has already ended.
+	 *
+	 * <p>Returns HTTP 409 CONFLICT because the request conflicts with the current
+	 * state of the resource (auction is no longer accepting bids).
+	 *
+	 * @param ex the AuctionEndedException containing the auction ID and end time
+	 * @param request the HTTP request that triggered the exception
+	 * @return a ResponseEntity with HTTP status 409, error "Auction Ended",
+	 *         the exception message, and the request URI
+	 */
 	@ExceptionHandler(AuctionEndedException.class)
 	public ResponseEntity<ErrorResponse> handleAuctionEnded(AuctionEndedException ex,
 		HttpServletRequest request) {
@@ -230,7 +241,7 @@ public class GlobalExceptionHandler {
 		ErrorResponse error = new ErrorResponse(HttpStatus.CONFLICT.value(), "Auction Ended",
 			ex.getMessage(), request.getRequestURI());
 
-		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
 	}
 
 	/**
