@@ -17,7 +17,7 @@ public class AuctionCacheService {
 	public void markAuctionEnded(Long itemId, Instant endTime) {
 
 		redisTemplate.opsForValue().set(AUCTION_ENDTIME_KEY_PREFIX + itemId, endTime.toString());
-
+		log.info("Auction {} ended at {}", itemId, endTime);
 	}
 	public boolean isAuctionEnded(Long itemId) {
 		boolean isEnded = redisTemplate.hasKey(AUCTION_ENDTIME_KEY_PREFIX + itemId);
