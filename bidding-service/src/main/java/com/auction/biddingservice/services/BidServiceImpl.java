@@ -5,12 +5,14 @@ import com.auction.biddingservice.dto.PlaceBidRequest;
 import com.auction.biddingservice.events.BidPlacedEvent;
 import com.auction.biddingservice.events.EventPublisher;
 import com.auction.biddingservice.events.UserOutbidEvent;
+import com.auction.biddingservice.exceptions.AuctionEndedException;
 import com.auction.biddingservice.exceptions.BidLockException;
 import com.auction.biddingservice.exceptions.InvalidBidException;
 import com.auction.biddingservice.models.Bid;
 import com.auction.biddingservice.repositories.BidRepository;
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -54,6 +56,7 @@ public class BidServiceImpl implements BidService {
   private final BidMapper bidMapper;
   private final EventPublisher eventPublisher;
   private final RedisTemplate<String, String> redisTemplate;
+  private final AuctionCacheService auctionCacheService;
 
   private static final Duration LOCK_TIMEOUT = Duration.ofSeconds(5);
   private static final String LOCK_KEY_PREFIX = "lock:item:";
@@ -72,6 +75,10 @@ public class BidServiceImpl implements BidService {
     Long itemId = request.itemId();
     BigDecimal bidAmount = request.bidAmount();
     log.debug("placeBid - itemId: {}, bidderId: {}, bidAmount: {}", itemId, bidderId, bidAmount);
+
+	if (auctionCacheService.isAuctionEnded(itemId)) {
+		throw new AuctionEndedException(itemId, Instant.now());
+	}
 
     return executeWithLock(itemId, () -> {
       Optional<Bid> highestBidOpt = bidRepository.findFirstByItemIdOrderByBidAmountDesc(itemId);
