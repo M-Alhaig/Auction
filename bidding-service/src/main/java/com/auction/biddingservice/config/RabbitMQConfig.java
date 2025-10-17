@@ -38,9 +38,14 @@ import org.springframework.retry.support.RetryTemplate;
 @Configuration
 public class RabbitMQConfig {
 
-	public static final String BIDDING_SERVICE_AUCTION_QUEUE = "BiddingServiceAuctionQueue";
-	public static final String BIDDING_SERVICE_AUCTION_QUEUE_DLQ = "BiddingServiceAuctionQueue.dlq";
+	// Single queue for all Item Service events (auction lifecycle)
+	public static final String BIDDING_SERVICE_ITEM_EVENTS_QUEUE = "BiddingServiceItemEventsQueue";
+	public static final String BIDDING_SERVICE_ITEM_EVENTS_QUEUE_DLQ = "BiddingServiceItemEventsQueue.dlq";
+
+	// Routing keys
+	public static final String AUCTION_STARTED = "item.auction-started";
 	public static final String AUCTION_ENDED = "item.auction-ended";
+
 	@Value("${rabbitmq.exchange.name}")
   private String exchangeName;
 
@@ -67,62 +72,85 @@ public class RabbitMQConfig {
   }
 
   /**
-   * Creates the main queue for consuming AuctionEndedEvent messages.
+   * Creates a single queue for consuming all Item Service lifecycle events.
    *
-   * <p>Queue Configuration:
+   * <p><strong>Events Consumed:</strong>
    * <ul>
-   *   <li>Queue name: "BiddingServiceAuctionQueue"</li>
+   *   <li>AuctionStartedEvent (routing key: "item.auction-started") - Cache auction metadata</li>
+   *   <li>AuctionEndedEvent (routing key: "item.auction-ended") - Mark auction as ended</li>
+   * </ul>
+   *
+   * <p><strong>Queue Configuration:</strong>
+   * <ul>
+   *   <li>Queue name: "BiddingServiceItemEventsQueue"</li>
    *   <li>Durable: true (survives RabbitMQ broker restarts)</li>
    *   <li>Dead Letter Exchange: "" (default exchange)</li>
-   *   <li>Dead Letter Routing Key: "BiddingServiceAuctionQueue.dlq"</li>
+   *   <li>Dead Letter Routing Key: "BiddingServiceItemEventsQueue.dlq"</li>
+   * </ul>
+   *
+   * <p><strong>Design Rationale:</strong> Single queue for all item lifecycle events because:
+   * <ul>
+   *   <li>Same producer (Item Service) → Same consumer (Bidding Service)</li>
+   *   <li>Same retry policy and error handling</li>
+   *   <li>Same criticality (auction-critical events)</li>
+   *   <li>Simpler infrastructure (1 queue + 1 DLQ instead of 2 queues + 2 DLQs)</li>
    * </ul>
    *
    * <p>Messages that fail after max retries (3 attempts) are automatically routed
    * to the dead letter queue for manual inspection.
    *
-   * @return the configured Queue for auction ended events
+   * @return the configured Queue for all item lifecycle events
    */
   @Bean
-  public Queue auctionEndedQueue() {
+  public Queue itemEventsQueue() {
     return QueueBuilder
-		.durable(BIDDING_SERVICE_AUCTION_QUEUE)
+		.durable(BIDDING_SERVICE_ITEM_EVENTS_QUEUE)
 		.deadLetterExchange("")
-		.deadLetterRoutingKey(BIDDING_SERVICE_AUCTION_QUEUE_DLQ)
+		.deadLetterRoutingKey(BIDDING_SERVICE_ITEM_EVENTS_QUEUE_DLQ)
 		.build();
   }
 
   /**
-   * Creates the dead letter queue (DLQ) for failed AuctionEndedEvent messages.
+   * Creates the dead letter queue (DLQ) for failed Item Service event processing.
    *
    * <p>Messages are routed here when:
    * <ul>
    *   <li>Processing fails after 3 retry attempts</li>
-   *   <li>Permanent errors occur (IllegalArgumentException)</li>
+   *   <li>Permanent errors occur (IllegalArgumentException - invalid event data)</li>
    *   <li>Message cannot be deserialized</li>
    * </ul>
+   *
+   * <p>Monitor this queue's size - growth indicates systematic processing issues
+   * that require investigation (e.g., Item Service publishing malformed events,
+   * Redis unavailability, or consumer bugs).
    *
    * @return the configured Dead Letter Queue
    */
   @Bean
-  public Queue auctionEndedDLQ() {
-	  return QueueBuilder.durable(BIDDING_SERVICE_AUCTION_QUEUE_DLQ).build();
+  public Queue itemEventsDLQ() {
+	  return QueueBuilder.durable(BIDDING_SERVICE_ITEM_EVENTS_QUEUE_DLQ).build();
   }
 
   /**
-   * Binds the auction ended queue to the auction-events exchange using the
-   * routing key "item.auction-ended".
+   * Binds the item events queue to the auction-events exchange using wildcard routing.
    *
-   * <p>This binding ensures that when Item Service publishes AuctionEndedEvent
-   * with routing key "item.auction-ended", it will be routed to this service's
-   * queue for processing.
+   * <p><strong>Routing Key Pattern:</strong> "item.*" (wildcard matches all item events)
+   * <ul>
+   *   <li>Matches: "item.auction-started" → AuctionStartedEvent</li>
+   *   <li>Matches: "item.auction-ended" → AuctionEndedEvent</li>
+   *   <li>Future-proof: Automatically receives any new "item.*" events</li>
+   * </ul>
    *
-   * @param auctionEndedQueue the queue to bind (injected by Spring)
+   * <p><strong>Listener Discrimination:</strong> The ItemEventListener uses method overloading
+   * to discriminate between event types based on the message payload class.
+   *
+   * @param itemEventsQueue the queue to bind (injected by Spring)
    * @param exchange the topic exchange to bind to (injected by Spring)
-   * @return the configured Binding
+   * @return the configured Binding with wildcard pattern
    */
   @Bean
-  public Binding auctionEndedBinding(Queue auctionEndedQueue, TopicExchange exchange) {
-    return BindingBuilder.bind(auctionEndedQueue).to(exchange).with(AUCTION_ENDED);
+  public Binding itemEventsBinding(Queue itemEventsQueue, TopicExchange exchange) {
+    return BindingBuilder.bind(itemEventsQueue).to(exchange).with("item.*");
   }
 
   /**

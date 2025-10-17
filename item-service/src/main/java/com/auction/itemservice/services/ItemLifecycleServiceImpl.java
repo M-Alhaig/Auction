@@ -321,14 +321,14 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
 	 */
 	private void publishAuctionStartedEvent(Item item) {
 		AuctionStartedEvent event = AuctionStartedEvent.create(item.getId(), item.getSellerId(),
-			item.getTitle(), item.getStartTime(), item.getStartingPrice());
+			item.getTitle(), item.getStartTime(), item.getEndTime(), item.getStartingPrice());
 
 		eventPublisher.publish(event);
 
 		log.debug(
-			"Published AuctionStartedEvent - itemId: {}, title: '{}', startingPrice: {}, eventId: {}",
+			"Published AuctionStartedEvent - itemId: {}, title: '{}', startingPrice: {}, endTime: {}, eventId: {}",
 			event.data().itemId(), event.data().title(), event.data().startingPrice(),
-			event.eventId());
+			event.data().endTime(), event.eventId());
 	}
 
 	/**
