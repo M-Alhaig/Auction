@@ -1,5 +1,6 @@
 package com.auction.biddingservice.services;
 
+import com.auction.biddingservice.models.ItemStatus;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -115,7 +116,7 @@ public class AuctionCacheService {
 	// ==================== AUCTION METADATA CACHE ====================
 
 	/**
-	 * Caches auction metadata (starting price and end time) with dynamic TTL based on auction duration.
+	 * Caches auction metadata (starting price, end time, and status) with dynamic TTL based on auction duration.
 	 *
 	 * <p><strong>Dynamic TTL Strategy:</strong> The cache TTL is calculated as the duration between
 	 * the current time and the auction end time. This ensures:
@@ -125,22 +126,30 @@ public class AuctionCacheService {
 	 *   <li>Minimum TTL of 5 minutes to handle edge cases (auctions about to end)</li>
 	 * </ul>
 	 *
-	 * <p><strong>Cache Format:</strong> Simple pipe-delimited string: "{startingPrice}|{endTime}"
+	 * <p><strong>Cache Format:</strong> Simple pipe-delimited string: "{startingPrice}|{endTime}|{status}"
 	 * <ul>
-	 *   <li>Example: "100.00|2025-10-16T10:00:00Z"</li>
-	 *   <li>Parsing: Split by '|' to extract both values</li>
+	 *   <li>Example: "100.00|2025-10-16T10:00:00Z|ACTIVE"</li>
+	 *   <li>Parsing: Split by '|' to extract all three values</li>
 	 * </ul>
 	 *
-	 * <p><strong>Populated By:</strong> AuctionStartedEventListener when Item Service publishes
-	 * AuctionStartedEvent (event-driven cache warming).
+	 * <p><strong>Populated By:</strong>
+	 * <ul>
+	 *   <li>AuctionStartedEventListener - Sets status to ACTIVE</li>
+	 *   <li>AuctionEndedEventListener - Updates status to ENDED</li>
+	 *   <li>ItemServiceClient fallback - Caches response from API call</li>
+	 * </ul>
 	 *
 	 * @param itemId the auction item ID
 	 * @param startingPrice the minimum bid amount for the first bid
 	 * @param endTime the instant when the auction will end
+	 * @param status the auction status (PENDING, ACTIVE, or ENDED)
 	 */
-	public void cacheAuctionMetadata(Long itemId, BigDecimal startingPrice, Instant endTime) {
+	public void cacheAuctionMetadata(Long itemId, BigDecimal startingPrice, Instant endTime, ItemStatus status) {
 		// Calculate dynamic TTL based on auction duration
-		Duration ttl = Duration.between(Instant.now(), endTime);
+    Duration ttl = Duration.ofDays(1);
+    if (status == ItemStatus.ACTIVE) {
+      ttl = Duration.between(Instant.now(), endTime);
+    }
 
 		// Ensure minimum TTL (handle auctions about to end or clock skew)
 		if (ttl.compareTo(MIN_CACHE_TTL) < 0) {
@@ -148,12 +157,12 @@ public class AuctionCacheService {
 			log.warn("Auction {} ends soon (endTime: {}), using minimum TTL: {}", itemId, endTime, MIN_CACHE_TTL);
 		}
 
-		// Store as simple pipe-delimited string: "startingPrice|endTime"
-		String value = startingPrice.toString() + "|" + endTime.toString();
+		// Store as pipe-delimited string: "startingPrice|endTime|status"
+		String value = startingPrice.toString() + "|" + endTime.toString() + "|" + status.name();
 		redisTemplate.opsForValue().set(AUCTION_METADATA_KEY_PREFIX + itemId, value, ttl);
 
-		log.info("Cached auction {} metadata - startingPrice: {}, endTime: {}, TTL: {}",
-			itemId, startingPrice, endTime, ttl);
+		log.info("Cached auction {} metadata - startingPrice: {}, endTime: {}, status: {}, TTL: {}",
+			itemId, startingPrice, endTime, status, ttl);
 	}
 
 	/**
@@ -173,7 +182,7 @@ public class AuctionCacheService {
 
 		if (metadata != null) {
 			String[] parts = metadata.split("\\|");
-			if (parts.length == 2) {
+			if (parts.length >= 2) {  // Support both old (2-part) and new (3-part) format
 				BigDecimal startingPrice = new BigDecimal(parts[0]);
 				log.debug("Retrieved auction {} starting price from cache: {}", itemId, startingPrice);
 				return startingPrice;
@@ -204,7 +213,7 @@ public class AuctionCacheService {
 
 		if (metadata != null) {
 			String[] parts = metadata.split("\\|");
-			if (parts.length == 2) {
+			if (parts.length >= 2) {  // Support both old (2-part) and new (3-part) format
 				Instant endTime = Instant.parse(parts[1]);
 				log.debug("Retrieved auction {} end time from metadata cache: {}", itemId, endTime);
 				return endTime;
@@ -214,6 +223,47 @@ public class AuctionCacheService {
 		}
 
 		log.debug("No end time found in metadata cache for auction {}", itemId);
+		return null;
+	}
+
+	/**
+	 * Retrieves the auction status from the Redis metadata cache.
+	 *
+	 * <p>This is the core method for validating whether an auction can accept bids.
+	 * It checks the cached status to determine if the auction is PENDING, ACTIVE, or ENDED.
+	 *
+	 * <p><strong>Status Meanings:</strong>
+	 * <ul>
+	 *   <li>PENDING - Auction not started yet, bids rejected with 400 BAD_REQUEST</li>
+	 *   <li>ACTIVE - Auction accepting bids</li>
+	 *   <li>ENDED - Auction closed, bids rejected with 409 CONFLICT</li>
+	 * </ul>
+	 *
+	 * <p><strong>Cache Miss Handling:</strong> Returns null if status not found or using old cache format.
+	 * The caller MUST fallback to Item Service API to fetch the authoritative status.
+	 *
+	 * <p><strong>SECURITY:</strong> NEVER assumes a status - returns null on old format (fail closed).
+	 *
+	 * @param itemId the auction item ID
+	 * @return the auction status (PENDING/ACTIVE/ENDED), or null if not found in cache
+	 */
+	public ItemStatus getStatus(Long itemId) {
+		String metadata = redisTemplate.opsForValue().get(AUCTION_METADATA_KEY_PREFIX + itemId);
+
+		if (metadata != null) {
+			String[] parts = metadata.split("\\|");
+			if (parts.length == 3) {
+				ItemStatus status = ItemStatus.valueOf(parts[2]);
+				log.debug("Retrieved auction {} status from cache: {}", itemId, status);
+				return status;
+			} else {
+				// Old format or incomplete data - treat as cache miss (fail closed)
+				log.warn("Auction {} has old metadata format (missing status) - treating as cache miss", itemId);
+				return null;
+			}
+		}
+
+		log.debug("No status found in cache for auction {} (cache miss)", itemId);
 		return null;
 	}
 }

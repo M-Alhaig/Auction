@@ -2,6 +2,7 @@ package com.auction.biddingservice.listeners;
 
 import com.auction.biddingservice.events.AuctionEndedEvent;
 import com.auction.biddingservice.events.AuctionStartedEvent;
+import com.auction.biddingservice.models.ItemStatus;
 import com.auction.biddingservice.services.AuctionCacheService;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
@@ -45,8 +46,11 @@ public class AuctionEventListener {
 	/**
 	 * Consumes AuctionEndedEvent messages and marks auctions as ended in Redis cache.
 	 *
-	 * <p><strong>Cache Strategy:</strong> Stores auction ended flag with 7-day TTL to allow rejecting
-	 * late bids for a week after auction closes.
+	 * <p><strong>Cache Strategy:</strong>
+	 * <ul>
+	 *   <li>Marks auction as ended in dedicated ended-flag cache (7-day TTL)</li>
+	 *   <li>Updates metadata cache status to ENDED (allows status-based validation)</li>
+	 * </ul>
 	 *
 	 * <p><strong>Purpose:</strong> Fast rejection of bids on ended auctions (~1ms Redis lookup)
 	 * before acquiring distributed locks or querying databases.
@@ -76,11 +80,20 @@ public class AuctionEventListener {
 		}
 
 		try {
+			// Mark auction as ended in dedicated ended-flag cache
 			auctionCacheService.markAuctionEnded(event.data().itemId(), event.data().endTime());
 
+			// Also update metadata cache status to ENDED (for status-based validation)
+			auctionCacheService.cacheAuctionMetadata(
+				event.data().itemId(),
+				event.data().finalPrice(),  // Use final price as "starting price" for cache
+				event.data().endTime(),
+				ItemStatus.ENDED
+			);
+
 			redisTemplate.opsForValue().set(lockKey, "1", LOCK_TIMEOUT);
-			log.info("AuctionEndedEvent processed successfully - eventId: {}, itemId: {}",
-				event.eventId(), event.data().itemId());
+			log.info("AuctionEndedEvent processed successfully - eventId: {}, itemId: {}, finalPrice: {}, status: ENDED",
+				event.eventId(), event.data().itemId(), event.data().finalPrice());
 
 		} catch (IllegalArgumentException e) {
 			log.error("Invalid auction ended event - eventId: {}, itemId: {}, reason: {}",
@@ -130,11 +143,12 @@ public class AuctionEventListener {
 			auctionCacheService.cacheAuctionMetadata(
 				event.data().itemId(),
 				event.data().startingPrice(),
-				event.data().endTime()
+				event.data().endTime(),
+				ItemStatus.ACTIVE  // Mark as ACTIVE in metadata cache
 			);
 
 			redisTemplate.opsForValue().set(lockKey, "1", LOCK_TIMEOUT);
-			log.info("AuctionStartedEvent processed successfully - eventId: {}, itemId: {}, startingPrice: {}",
+			log.info("AuctionStartedEvent processed successfully - eventId: {}, itemId: {}, startingPrice: {}, status: ACTIVE",
 				event.eventId(), event.data().itemId(), event.data().startingPrice());
 
 		} catch (IllegalArgumentException e) {

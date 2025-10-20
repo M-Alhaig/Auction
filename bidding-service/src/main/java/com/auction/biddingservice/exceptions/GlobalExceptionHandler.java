@@ -7,12 +7,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Global exception handler for all REST controllers in Bidding Service. Catches exceptions and
@@ -27,8 +29,9 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
 	public static final String BAD_REQUEST = "Bad Request";
+  public static final String NOT_FOUND = "Not Found";
 
-	/**
+  /**
 	 * Convert an InvalidBidException into an HTTP 400 Bad Request error response.
 	 *
 	 * @param ex      the InvalidBidException describing why the bid is invalid
@@ -47,6 +50,27 @@ public class GlobalExceptionHandler {
 
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
 	}
+
+  /**
+   * Convert an ItemNotFoundException into an HTTP 404 Not Found response.
+   *
+   * @return ResponseEntity containing an ErrorResponse with HTTP status 404, the exception message, and the request URI
+   */
+  @ExceptionHandler(ItemNotFoundException.class)
+  public ResponseEntity<ErrorResponse> handleItemNotFound(
+      ItemNotFoundException ex,
+      HttpServletRequest request
+  ) {
+    log.warn("Item not found - path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
+    ErrorResponse error = new ErrorResponse(
+        HttpStatus.NOT_FOUND.value(),
+        NOT_FOUND,
+        ex.getMessage(),
+        request.getRequestURI()
+    );
+    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+  }
 
 	/**
 	 * Handle a bid lock conflict and produce a 409 Conflict response.
@@ -83,7 +107,7 @@ public class GlobalExceptionHandler {
 		log.warn("Auction not found - path: {}, message: {}", request.getRequestURI(),
 			ex.getMessage());
 
-		ErrorResponse error = new ErrorResponse(HttpStatus.NOT_FOUND.value(), "Not Found",
+		ErrorResponse error = new ErrorResponse(HttpStatus.NOT_FOUND.value(), NOT_FOUND,
 			ex.getMessage(), request.getRequestURI());
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
 	}
@@ -99,7 +123,7 @@ public class GlobalExceptionHandler {
 		HttpServletRequest request) {
 		log.warn("Bid not found - path: {}, message: {}", request.getRequestURI(), ex.getMessage());
 
-		ErrorResponse error = new ErrorResponse(HttpStatus.NOT_FOUND.value(), "Not Found",
+		ErrorResponse error = new ErrorResponse(HttpStatus.NOT_FOUND.value(), NOT_FOUND,
 			ex.getMessage(), request.getRequestURI());
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
 	}
@@ -243,6 +267,88 @@ public class GlobalExceptionHandler {
 
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
 	}
+
+	/**
+	 * Handle attempts to bid on an auction that is not active yet (PENDING status).
+	 *
+	 * <p>Returns HTTP 400 BAD_REQUEST because the request is invalid - the auction
+	 * hasn't started yet, so bids cannot be placed. Unlike 409 CONFLICT (auction ended),
+	 * this is a client error that may succeed if retried after the auction starts.
+	 *
+	 * @param ex the AuctionNotActiveException containing the auction ID
+	 * @param request the HTTP request that triggered the exception
+	 * @return a ResponseEntity with HTTP status 400, error "Auction Not Active",
+	 *         the exception message, and the request URI
+	 */
+	@ExceptionHandler(AuctionNotActiveException.class)
+	public ResponseEntity<ErrorResponse> handleAuctionNotActive(AuctionNotActiveException ex,
+		HttpServletRequest request) {
+		log.warn("Auction not active - path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
+		ErrorResponse error = new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Auction Not Active",
+			ex.getMessage(), request.getRequestURI());
+
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
+  /**
+   * Handle requests to non-existent endpoints or resources.
+   *
+   * <p>Triggered when Spring cannot find a matching endpoint for the request path,
+   * such as typos in URLs, incorrect HTTP methods, or accessing non-existent static resources.
+   *
+   * @param ex the NoResourceFoundException thrown by Spring MVC
+   * @param request the HTTP request whose URI is included in the error response
+   * @return an ErrorResponse with HTTP status 404, error "Not Found", a message indicating
+   *         the endpoint does not exist, and the request URI
+   */
+  @ExceptionHandler(NoResourceFoundException.class)
+  public ResponseEntity<ErrorResponse> handleNoResourceFound(
+      NoResourceFoundException ex,
+      HttpServletRequest request
+  ) {
+    log.warn("Endpoint not found - path: {}, method: {}", request.getRequestURI(),
+        request.getMethod());
+
+    ErrorResponse error = new ErrorResponse(
+        HttpStatus.NOT_FOUND.value(),
+        NOT_FOUND,
+        "The requested endpoint does not exist",
+        request.getRequestURI()
+    );
+    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+  }
+
+  /**
+   * Handle missing required request headers.
+   *
+   * <p>Triggered when a controller method requires a request header (e.g., X-Auth-Id)
+   * but the header is not present in the request or is present but empty.
+   *
+   * @param ex the MissingRequestHeaderException describing which header is missing
+   * @param request the HTTP request whose URI is included in the error response
+   * @return an ErrorResponse with HTTP status 400, error "Bad Request", a message indicating
+   *         which header is required, and the request URI
+   */
+  @ExceptionHandler(MissingRequestHeaderException.class)
+  public ResponseEntity<ErrorResponse> handleMissingRequestHeader(
+      MissingRequestHeaderException ex,
+      HttpServletRequest request
+  ) {
+    String headerName = ex.getHeaderName();
+    String message = String.format("Required request header '%s' is missing or empty", headerName);
+
+    log.warn("Missing required header - path: {}, header: {}", request.getRequestURI(),
+        headerName);
+
+    ErrorResponse error = new ErrorResponse(
+        HttpStatus.BAD_REQUEST.value(),
+        BAD_REQUEST,
+        message,
+        request.getRequestURI()
+    );
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+  }
 
 	/**
 	 * Convert a malformed or unreadable HTTP request body into a 400 Bad Request error response.

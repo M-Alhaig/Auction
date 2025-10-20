@@ -4,6 +4,7 @@ import com.auction.itemservice.dto.CreateItemRequest;
 import com.auction.itemservice.dto.ItemResponse;
 import com.auction.itemservice.dto.UpdateItemRequest;
 import com.auction.itemservice.models.ItemStatus;
+import com.auction.itemservice.services.ItemLifecycleService;
 import com.auction.itemservice.services.ItemService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ import java.util.UUID;
 public class ItemController {
 
   private final ItemService itemService;
+  private final ItemLifecycleService itemLifecycleService;
 
   /**
    * Create a new auction item for the specified seller.
@@ -181,6 +183,74 @@ public class ItemController {
   ) {
     log.debug("GET /api/items/active/ending-soon - page: {}, size: {}", pageable.getPageNumber(), pageable.getPageSize());
     Page<ItemResponse> response = itemService.getActiveAuctionsEndingSoon(pageable);
+    return ResponseEntity.ok(response);
+  }
+
+  /**
+   * Manually start an auction (transition from PENDING to ACTIVE status).
+   *
+   * <p><strong>Purpose:</strong> For testing and manual auction management.
+   * In production, auctions are started automatically by the scheduler when startTime is reached.
+   *
+   * <p><strong>Side Effects:</strong>
+   * <ul>
+   *   <li>Changes item status from PENDING to ACTIVE</li>
+   *   <li>Publishes AuctionStartedEvent to RabbitMQ</li>
+   *   <li>Bidding Service caches auction metadata (startingPrice + endTime)</li>
+   * </ul>
+   *
+   * @param id the item identifier
+   * @param userId the authenticated seller's UUID
+   * @return the updated ItemResponse with ACTIVE status
+   * @throws com.auction.itemservice.exceptions.ItemNotFoundException if item not found
+   * @throws IllegalStateException if item is not in PENDING status
+   * @throws com.auction.itemservice.exceptions.UnauthorizedException if user is not the seller
+   */
+  @PatchMapping("/{id}/start")
+  public ResponseEntity<ItemResponse> startAuction(
+      @PathVariable Long id,
+      @RequestHeader("X-Auth-Id") UUID userId
+  ) {
+    log.info("PATCH /api/items/{}/start - Starting auction by user: {}", id, userId);
+
+    itemLifecycleService.startAuction(id);
+    ItemResponse response = itemService.getItemById(id);
+
+    log.info("PATCH /api/items/{}/start - Auction started successfully", id);
+    return ResponseEntity.ok(response);
+  }
+
+  /**
+   * Manually end an auction (transition from ACTIVE to ENDED status).
+   *
+   * <p><strong>Purpose:</strong> For testing and manual auction management.
+   * In production, auctions are ended automatically by the scheduler when endTime is reached.
+   *
+   * <p><strong>Side Effects:</strong>
+   * <ul>
+   *   <li>Changes item status from ACTIVE to ENDED</li>
+   *   <li>Publishes AuctionEndedEvent to RabbitMQ</li>
+   *   <li>Bidding Service marks auction as ended (rejects future bids)</li>
+   * </ul>
+   *
+   * @param id the item identifier
+   * @param userId the authenticated seller's UUID
+   * @return the updated ItemResponse with ENDED status and final price
+   * @throws com.auction.itemservice.exceptions.ItemNotFoundException if item not found
+   * @throws IllegalStateException if item is not in ACTIVE status
+   * @throws com.auction.itemservice.exceptions.UnauthorizedException if user is not the seller
+   */
+  @PatchMapping("/{id}/end")
+  public ResponseEntity<ItemResponse> endAuction(
+      @PathVariable Long id,
+      @RequestHeader("X-Auth-Id") UUID userId
+  ) {
+    log.info("PATCH /api/items/{}/end - Ending auction by user: {}", id, userId);
+
+    itemLifecycleService.endAuction(id);
+    ItemResponse response = itemService.getItemById(id);
+
+    log.info("PATCH /api/items/{}/end - Auction ended successfully, final price: {}", id, response.currentPrice());
     return ResponseEntity.ok(response);
   }
 }

@@ -8,6 +8,7 @@ import com.auction.biddingservice.events.BidPlacedEvent;
 import com.auction.biddingservice.events.EventPublisher;
 import com.auction.biddingservice.events.UserOutbidEvent;
 import com.auction.biddingservice.exceptions.AuctionEndedException;
+import com.auction.biddingservice.exceptions.AuctionNotActiveException;
 import com.auction.biddingservice.exceptions.BidLockException;
 import com.auction.biddingservice.exceptions.InvalidBidException;
 import com.auction.biddingservice.models.Bid;
@@ -82,8 +83,8 @@ public class BidServiceImpl implements BidService {
     BigDecimal bidAmount = request.bidAmount();
     log.debug("placeBid - itemId: {}, bidderId: {}, bidAmount: {}", itemId, bidderId, bidAmount);
 
-    // Multi-layered auction-ended check with cache-first + API fallback
-    validateAuctionNotEnded(itemId);
+    // Multi-layered auction status check with cache-first + API fallback
+    validateAuctionStatus(itemId);
 
     return executeWithLock(itemId, () -> {
       Optional<Bid> highestBidOpt = bidRepository.findFirstByItemIdOrderByBidAmountDesc(itemId);
@@ -336,9 +337,9 @@ public class BidServiceImpl implements BidService {
       startingPrice = item.startingPrice();
 
       // Cache for future bids (warm the cache)
-      auctionCacheService.cacheAuctionMetadata(itemId, startingPrice, item.endTime());
-      log.info("Cached auction metadata from API fallback - itemId: {}, startingPrice: {}",
-          itemId, startingPrice);
+      auctionCacheService.cacheAuctionMetadata(itemId, startingPrice, item.endTime(), item.status());
+      log.info("Cached auction metadata from API fallback - itemId: {}, startingPrice: {}, status: {}",
+          itemId, startingPrice, item.status());
     }
 
     // Validate bid amount
@@ -354,74 +355,83 @@ public class BidServiceImpl implements BidService {
   }
 
   /**
-   * Validates that an auction has not ended using a multi-layered cache-first strategy with API fallback.
+   * Validates that an auction is ACTIVE using a cache-first strategy with API fallback.
    *
-   * <p><strong>Multi-Layered Validation Strategy:</strong>
+   * <p><strong>Validation Flow:</strong>
    * <pre>
-   * Layer 1: Check explicit "ended" flag cache (~1ms)
-   *   - If cache says ENDED → reject immediately
+   * Step 1: Check metadata cache for status (~1ms)
+   *   - ACTIVE → Allow bid ✅
+   *   - ENDED → Throw AuctionEndedException (409 CONFLICT)
+   *   - PENDING → Throw AuctionNotActiveException (400 BAD_REQUEST)
    *
-   * Layer 2: Check endTime from metadata cache (~1ms)
-   *   - If endTime exists and is in past → reject without API call
-   *   - Handles case where ended-flag cache expired but metadata cache still valid
-   *
-   * Layer 3: Fallback to Item Service API (~50ms)
-   *   - Only when both caches miss (cache expired or Redis restart)
-   *   - Fetches item status and warms both caches
+   * Step 2: Cache miss → Fallback to Item Service API (~50ms)
+   *   - Fetch item details and status
+   *   - Cache the metadata with status
+   *   - Apply same status validation as above
    * </pre>
    *
-   * <p><strong>Design Rationale:</strong>
-   * Cannot distinguish between "auction active" and "cache miss" from a single cache lookup.
-   * Using endTime from metadata cache as second layer avoids 99% of API calls on cache misses.
+   * <p><strong>Security:</strong>
+   * This is a fail-closed system. If status cannot be determined (cache miss),
+   * the method falls back to the authoritative Item Service API. It NEVER assumes
+   * a status, preventing bids on PENDING or ENDED auctions due to stale/missing cache.
    *
-   * <p><strong>Cache Warming:</strong>
-   * When API fallback occurs, proactively warms both ended-flag and metadata caches
-   * to prevent repeated API calls for the same auction.
+   * <p><strong>Status Meanings:</strong>
+   * <ul>
+   *   <li>ACTIVE - Auction accepting bids (normal flow)</li>
+   *   <li>PENDING - Auction not started yet (400 BAD_REQUEST - client can retry later)</li>
+   *   <li>ENDED - Auction closed (409 CONFLICT - state conflict, cannot retry)</li>
+   * </ul>
    *
    * @param itemId the auction item ID to validate
-   * @throws AuctionEndedException if the auction has ended
+   * @throws AuctionNotActiveException if the auction is PENDING (400 BAD_REQUEST)
+   * @throws AuctionEndedException if the auction is ENDED (409 CONFLICT)
    */
-  private void validateAuctionNotEnded(Long itemId) {
-    // Layer 1: Check explicit ended flag cache
-    if (auctionCacheService.isAuctionEnded(itemId)) {
-      Instant endTime = auctionCacheService.getAuctionEndTime(itemId);
-      log.debug("validateAuctionNotEnded - auction ended (cache hit) - itemId: {}, endTime: {}",
-          itemId, endTime);
-      throw new AuctionEndedException(itemId, endTime);
-    }
+  private void validateAuctionStatus(Long itemId) {
+    // Step 1: Check metadata cache for status
+    ItemStatus status = auctionCacheService.getStatus(itemId);
 
-    // Layer 2: Check endTime from metadata cache (auction ended but flag cache expired)
-    Instant endTime = auctionCacheService.getEndTimeFromMetadata(itemId);
-    if (endTime != null && Instant.now().isAfter(endTime)) {
-      // Auction actually ended, cache was stale - mark it and reject bid
-      log.warn("Auction ended but ended-flag cache was stale - itemId: {}, endTime: {}, warming cache",
-          itemId, endTime);
-      auctionCacheService.markAuctionEnded(itemId, endTime);
-      throw new AuctionEndedException(itemId, endTime);
-    }
+    if (status != null) {
+      // Cache HIT - validate status
+      log.debug("validateAuctionStatus - cache hit - itemId: {}, status: {}", itemId, status);
 
-    // Layer 3: Both caches miss - fallback to Item Service API
-    if (endTime == null) {
-      log.info("Auction status uncertain (both caches miss) for itemId: {} - checking Item Service", itemId);
-
-      ItemResponse item = itemServiceClient.getItem(itemId);
-
-      if (item.status() == ItemStatus.ENDED) {
-        // Auction ended, warm both caches to prevent future API calls
-        auctionCacheService.markAuctionEnded(itemId, item.endTime());
-        log.info("Auction ended confirmed via API - itemId: {}, endTime: {}, warmed cache",
-            itemId, item.endTime());
-        throw new AuctionEndedException(itemId, item.endTime());
+      if (status == ItemStatus.ACTIVE) {
+        return; // ✅ Auction is active, proceed with bid
+      } else if (status == ItemStatus.ENDED) {
+        Instant endTime = auctionCacheService.getAuctionEndTime(itemId);
+        log.warn("Bid rejected - Auction ENDED (cached) - itemId: {}, endTime: {}", itemId, endTime);
+        throw new AuctionEndedException(itemId, endTime);
+      } else if (status == ItemStatus.PENDING) {
+        log.warn("Bid rejected - Auction PENDING (cached) - itemId: {}", itemId);
+        throw new AuctionNotActiveException(itemId);
       }
-
-      // Auction is active, warm metadata cache for future validations
-      auctionCacheService.cacheAuctionMetadata(itemId, item.startingPrice(), item.endTime());
-      log.info("Auction active confirmed via API - itemId: {}, status: {}, warmed metadata cache",
-          itemId, item.status());
     }
 
-    // All checks passed - auction is not ended, proceed with bid
-    log.debug("validateAuctionNotEnded - passed for itemId: {}", itemId);
+    // Step 2: Cache MISS - fallback to Item Service API
+    log.info("Auction status cache miss for itemId: {} - fetching from Item Service", itemId);
+
+    ItemResponse item = itemServiceClient.getItem(itemId);
+
+    // Cache the fetched metadata with status
+    auctionCacheService.cacheAuctionMetadata(itemId, item.startingPrice(), item.endTime(), item.status());
+    log.info("Cached auction metadata from API - itemId: {}, status: {}", itemId, item.status());
+
+    // Validate status from API response
+    if (item.status() == ItemStatus.ACTIVE) {
+      log.debug("validateAuctionStatus - passed (API) - itemId: {}, status: ACTIVE", itemId);
+      return; // ✅ Auction is active, proceed with bid
+    } else if (item.status() == ItemStatus.ENDED) {
+      // Also cache in ended-flag cache for faster future lookups
+      auctionCacheService.markAuctionEnded(itemId, item.endTime());
+      log.warn("Bid rejected - Auction ENDED (API) - itemId: {}, endTime: {}", itemId, item.endTime());
+      throw new AuctionEndedException(itemId, item.endTime());
+    } else if (item.status() == ItemStatus.PENDING) {
+      log.warn("Bid rejected - Auction PENDING (API) - itemId: {}", itemId);
+      throw new AuctionNotActiveException(itemId);
+    }
+
+    // Unknown status - should never happen, but fail closed
+    log.error("Unknown auction status from API - itemId: {}, status: {}", itemId, item.status());
+    throw new IllegalStateException("Unknown auction status: " + item.status());
   }
 
   // ==================== REDIS LOCK HELPER ====================
