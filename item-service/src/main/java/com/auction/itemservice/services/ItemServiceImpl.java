@@ -3,6 +3,8 @@ package com.auction.itemservice.services;
 import com.auction.itemservice.dto.CreateItemRequest;
 import com.auction.itemservice.dto.ItemResponse;
 import com.auction.itemservice.dto.UpdateItemRequest;
+import com.auction.itemservice.events.AuctionTimesUpdatedEvent;
+import com.auction.itemservice.events.EventPublisher;
 import com.auction.itemservice.exceptions.FreezeViolationException;
 import com.auction.itemservice.exceptions.ItemNotFoundException;
 import com.auction.itemservice.exceptions.UnauthorizedException;
@@ -37,6 +39,7 @@ public class ItemServiceImpl implements ItemService {
   private final ItemRepository itemRepository;
   private final CategoryRepository categoryRepository;
   private final ItemMapper itemMapper;
+  private final EventPublisher eventPublisher;
 
   /**
    * Freeze period duration: 24 hours before auction start.
@@ -73,6 +76,9 @@ public class ItemServiceImpl implements ItemService {
    *
    * Applies the non-null fields from the provided request to the item, persists the changes, and returns the updated item representation.
    *
+   * <p><strong>Event Publishing:</strong> If startTime or endTime is modified, publishes AuctionTimesUpdatedEvent
+   * to notify downstream services (e.g., Bidding Service invalidates cached metadata).
+   *
    * @param itemId              the identifier of the item to update
    * @param request             the update payload containing fields to apply
    * @param authenticatedUserId the identifier of the user performing the update; must be the item's seller
@@ -80,6 +86,7 @@ public class ItemServiceImpl implements ItemService {
    * @throws ItemNotFoundException if no item exists with the given {@code itemId}
    * @throws UnauthorizedException if the authenticated user is not the item's seller
    * @throws IllegalStateException if the item is not in PENDING status
+   * @throws FreezeViolationException if attempting to modify times within 24 hours of start
    */
   @Override
   public ItemResponse updateItem(Long itemId, UpdateItemRequest request, UUID authenticatedUserId) {
@@ -90,10 +97,20 @@ public class ItemServiceImpl implements ItemService {
     validateOwnership(item, authenticatedUserId);
     validateItemIsPending(item);
 
+    // Capture old times BEFORE update (for event publishing)
+    Instant oldStartTime = item.getStartTime();
+    Instant oldEndTime = item.getEndTime();
+
     updateItemFields(request, item);
     item = itemRepository.save(item);
 
-    log.info("Item updated - ID: {}, seller: {}", itemId, authenticatedUserId);
+    // Check if times changed and publish event for cache invalidation
+    boolean timesChanged = hasTimesChanged(oldStartTime, oldEndTime, item.getStartTime(), item.getEndTime());
+    if (timesChanged) {
+      publishAuctionTimesUpdatedEvent(item, oldStartTime, oldEndTime);
+    }
+
+    log.info("Item updated - ID: {}, seller: {}, timesChanged: {}", itemId, authenticatedUserId, timesChanged);
 
     return itemMapper.toItemResponse(item);
   }
@@ -349,5 +366,49 @@ public class ItemServiceImpl implements ItemService {
 
     log.debug("Freeze period check passed - itemId: {}, freezeStartsAt: {}, now: {}",
         item.getId(), freezeStartsAt, now);
+  }
+
+  /**
+   * Check if auction times (startTime or endTime) have changed.
+   *
+   * @param oldStartTime the start time before update
+   * @param oldEndTime the end time before update
+   * @param newStartTime the start time after update
+   * @param newEndTime the end time after update
+   * @return true if either startTime or endTime changed, false otherwise
+   */
+  private boolean hasTimesChanged(Instant oldStartTime, Instant oldEndTime,
+                                   Instant newStartTime, Instant newEndTime) {
+    boolean startTimeChanged = !oldStartTime.equals(newStartTime);
+    boolean endTimeChanged = !oldEndTime.equals(newEndTime);
+    return startTimeChanged || endTimeChanged;
+  }
+
+  /**
+   * Publish AuctionTimesUpdatedEvent to notify downstream services of time changes.
+   *
+   * <p>Primary consumer: Bidding Service invalidates cached metadata to prevent
+   * stale time-based validation (e.g., rejecting valid bids after extension).
+   *
+   * @param item the updated item with new times
+   * @param oldStartTime the previous start time
+   * @param oldEndTime the previous end time
+   */
+  private void publishAuctionTimesUpdatedEvent(Item item, Instant oldStartTime, Instant oldEndTime) {
+    AuctionTimesUpdatedEvent event = AuctionTimesUpdatedEvent.create(
+        item.getId(),
+        oldStartTime,
+        item.getStartTime(),
+        oldEndTime,
+        item.getEndTime(),
+        item.getStatus()
+    );
+
+    eventPublisher.publish(event);
+
+    log.info("Published AuctionTimesUpdatedEvent - itemId: {}, oldStart: {}, newStart: {}, " +
+            "oldEnd: {}, newEnd: {}, eventId: {}",
+        event.data().itemId(), oldStartTime, item.getStartTime(),
+        oldEndTime, item.getEndTime(), event.eventId());
   }
 }
