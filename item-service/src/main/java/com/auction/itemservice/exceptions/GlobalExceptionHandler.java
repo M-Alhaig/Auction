@@ -74,6 +74,35 @@ public class GlobalExceptionHandler {
   }
 
   /**
+   * Handle FreezeViolationException by returning an ErrorResponse for HTTP 403 Forbidden.
+   *
+   * <p>Triggered when a seller attempts to modify auction times (startTime or endTime)
+   * within 24 hours of the auction's scheduled start. This enforces the freeze period
+   * business rule to maintain fairness and trust.
+   *
+   * @param ex the triggered FreezeViolationException
+   * @param request the incoming request whose URI is included in the error response
+   * @return ResponseEntity containing an ErrorResponse with HTTP status 403 (Forbidden),
+   *         the exception message describing the freeze period violation, and the request URI
+   */
+  @ExceptionHandler(FreezeViolationException.class)
+  public ResponseEntity<ErrorResponse> handleFreezeViolation(
+      FreezeViolationException ex,
+      HttpServletRequest request
+  ) {
+    log.warn("Freeze period violation - path: {}, message: {}", request.getRequestURI(),
+        ex.getMessage());
+
+    ErrorResponse error = new ErrorResponse(
+        HttpStatus.FORBIDDEN.value(),
+        "Forbidden",
+        ex.getMessage(),
+        request.getRequestURI()
+    );
+    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+  }
+
+  /**
    * Convert a ConcurrentBidException into a 409 Conflict HTTP response.
    *
    * @return a ResponseEntity containing an ErrorResponse with HTTP status 409, error set to "Conflict",

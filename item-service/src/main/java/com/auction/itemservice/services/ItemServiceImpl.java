@@ -3,6 +3,7 @@ package com.auction.itemservice.services;
 import com.auction.itemservice.dto.CreateItemRequest;
 import com.auction.itemservice.dto.ItemResponse;
 import com.auction.itemservice.dto.UpdateItemRequest;
+import com.auction.itemservice.exceptions.FreezeViolationException;
 import com.auction.itemservice.exceptions.ItemNotFoundException;
 import com.auction.itemservice.exceptions.UnauthorizedException;
 import com.auction.itemservice.models.Category;
@@ -18,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 
@@ -34,6 +37,14 @@ public class ItemServiceImpl implements ItemService {
   private final ItemRepository itemRepository;
   private final CategoryRepository categoryRepository;
   private final ItemMapper itemMapper;
+
+  /**
+   * Freeze period duration: 24 hours before auction start.
+   *
+   * <p>Once an auction is within this window of its start time, sellers cannot modify
+   * startTime or endTime to prevent last-minute rule changes that could disadvantage bidders.
+   */
+  private static final Duration FREEZE_PERIOD = Duration.ofHours(24);
 
   /**
    * Create a new auction item using the provided request data and associate it with the given seller.
@@ -269,8 +280,14 @@ public class ItemServiceImpl implements ItemService {
    *
    * @param request the update request containing optional fields to apply
    * @param item the item entity to modify in-place
+   * @throws FreezeViolationException if attempting to modify startTime or endTime within the freeze period
    */
   private void updateItemFields(UpdateItemRequest request, Item item) {
+    // Check freeze period BEFORE modifying auction times
+    if (request.startTime() != null || request.endTime() != null) {
+      validateNotInFreezePeriod(item);
+    }
+
     if (request.title() != null) {
       item.setTitle(request.title());
     }
@@ -306,5 +323,31 @@ public class ItemServiceImpl implements ItemService {
     if (request.endTime() != null) {
       item.setEndTime(request.endTime());
     }
+  }
+
+  /**
+   * Validates that the item is not within the freeze period for time modifications.
+   *
+   * <p>The freeze period begins 24 hours before the auction's scheduled start time.
+   * Once inside this window, startTime and endTime cannot be modified to ensure fairness
+   * and prevent sellers from changing rules after bidders have made decisions.
+   *
+   * @param item the item whose freeze period status will be checked
+   * @throws FreezeViolationException if the current time is within 24 hours of the auction start
+   */
+  private void validateNotInFreezePeriod(Item item) {
+    Instant now = Instant.now();
+    Instant freezeStartsAt = item.getStartTime().minus(FREEZE_PERIOD);
+
+    // Check if we're currently within the freeze period
+    if (now.isAfter(freezeStartsAt)) {
+      log.warn("Freeze period violation - itemId: {}, startTime: {}, freezeStartsAt: {}, now: {}",
+          item.getId(), item.getStartTime(), freezeStartsAt, now);
+      throw FreezeViolationException.forTimeModification(
+          item.getId(), item.getStartTime(), freezeStartsAt);
+    }
+
+    log.debug("Freeze period check passed - itemId: {}, freezeStartsAt: {}, now: {}",
+        item.getId(), freezeStartsAt, now);
   }
 }
