@@ -202,7 +202,7 @@ public class RabbitMQConfig {
    * </ul>
    *
    * <p><strong>Retry Configuration via adviceChain:</strong>
-   * Uses {@link RetryInterceptorBuilder} to create a stateless retry interceptor that
+   * Uses {@link RetryOperationsInterceptor} to create a stateless retry interceptor that
    * integrates with RabbitMQ's acknowledgment system. The {@code setDefaultRequeueRejected(false)}
    * prevents failed messages from being requeued indefinitely - they go to DLQ instead.
    *
