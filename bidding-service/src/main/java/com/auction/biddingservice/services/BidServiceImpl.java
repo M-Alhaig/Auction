@@ -4,9 +4,9 @@ import com.auction.biddingservice.client.ItemServiceClient;
 import com.auction.biddingservice.dto.BidResponse;
 import com.auction.biddingservice.dto.ItemResponse;
 import com.auction.biddingservice.dto.PlaceBidRequest;
-import com.auction.biddingservice.events.BidPlacedEvent;
+import com.auction.events.BidPlacedEvent;
 import com.auction.biddingservice.events.EventPublisher;
-import com.auction.biddingservice.events.UserOutbidEvent;
+import com.auction.events.UserOutbidEvent;
 import com.auction.biddingservice.exceptions.AuctionEndedException;
 import com.auction.biddingservice.exceptions.AuctionNotActiveException;
 import com.auction.biddingservice.exceptions.BidLockException;
@@ -17,6 +17,7 @@ import com.auction.biddingservice.repositories.BidRepository;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -467,12 +469,25 @@ public class BidServiceImpl implements BidService {
       log.debug("executeWithLock - lock acquired for itemId: {}", itemId);
       return operation.get();
     } finally {
-      // Release the lock using a non-atomic 'check-then-delete'.
-      // This avoids Lua but has a small potential race condition.
-      String currentToken = redisTemplate.opsForValue().get(lockKey);
-      if (lockToken.equals(currentToken)) {
-        redisTemplate.delete(lockKey);
-        log.debug("executeWithLock - lock released for itemId: {}", itemId);
+      // Atomic lock release using Lua script to prevent race condition:
+      // If we used GET + compare + DELETE, the lock could expire between GET and DELETE,
+      // causing us to delete another thread's lock. Lua scripts execute atomically on Redis.
+      String unlockScript = """
+          if redis.call('get', KEYS[1]) == ARGV[1] then
+              return redis.call('del', KEYS[1])
+          else
+              return 0
+          end
+          """;
+
+      Long result = redisTemplate.execute(
+          RedisScript.of(unlockScript, Long.class),
+          Collections.singletonList(lockKey),
+          lockToken
+      );
+
+      if (Long.valueOf(1L).equals(result)) {
+        log.debug("executeWithLock - lock released atomically for itemId: {}", itemId);
       } else {
         log.warn(
             "executeWithLock - lock expired or was re-acquired by another process. Did not release. itemId: {}",
