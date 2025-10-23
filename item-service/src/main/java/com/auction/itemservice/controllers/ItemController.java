@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.context.annotation.Profile;
 
 import java.util.UUID;
 
@@ -199,6 +200,9 @@ public class ItemController {
    *   <li>Bidding Service caches auction metadata (startingPrice + endTime)</li>
    * </ul>
    *
+   * <p><strong>Availability:</strong> This endpoint is disabled in production environments.
+   * Only available when profile is NOT 'production' (e.g., dev, test, staging).
+   *
    * @param id the item identifier
    * @param userId the authenticated seller's UUID
    * @return the updated ItemResponse with ACTIVE status
@@ -206,6 +210,7 @@ public class ItemController {
    * @throws IllegalStateException if item is not in PENDING status
    * @throws com.auction.itemservice.exceptions.UnauthorizedException if user is not the seller
    */
+  @Profile("!production")
   @PatchMapping("/{id}/start")
   public ResponseEntity<ItemResponse> startAuction(
       @PathVariable Long id,
@@ -233,6 +238,9 @@ public class ItemController {
    *   <li>Bidding Service marks auction as ended (rejects future bids)</li>
    * </ul>
    *
+   * <p><strong>Availability:</strong> This endpoint is disabled in production environments.
+   * Only available when profile is NOT 'production' (e.g., dev, test, staging).
+   *
    * @param id the item identifier
    * @param userId the authenticated seller's UUID
    * @return the updated ItemResponse with ENDED status and final price
@@ -240,6 +248,7 @@ public class ItemController {
    * @throws IllegalStateException if item is not in ACTIVE status
    * @throws com.auction.itemservice.exceptions.UnauthorizedException if user is not the seller
    */
+  @Profile("!production")
   @PatchMapping("/{id}/end")
   public ResponseEntity<ItemResponse> endAuction(
       @PathVariable Long id,
