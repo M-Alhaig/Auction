@@ -1,11 +1,12 @@
-package com.auction.itemservice.events;
+package com.auction.events;
 
-import com.auction.itemservice.models.ItemStatus;
 import java.time.Instant;
 import java.util.UUID;
 
 /**
  * Event published when an auction's startTime or endTime is modified.
+ *
+ * <p>Publisher: Item Service
  *
  * <p>Purpose: Invalidate cached auction metadata in Bidding Service to prevent
  * stale time-based validation (e.g., rejecting valid bids after auction extension).
@@ -41,7 +42,7 @@ public record AuctionTimesUpdatedEvent(
    * @param newStartTime the new start time (after update)
    * @param oldEndTime the previous end time (before update)
    * @param newEndTime the new end time (after update)
-   * @param status the current item status (PENDING, ACTIVE, ENDED)
+   * @param status the current item status as String (PENDING, ACTIVE, ENDED)
    * @return the constructed AuctionTimesUpdatedEvent with generated eventId, timestamp, and payload
    */
   public static AuctionTimesUpdatedEvent create(
@@ -50,7 +51,7 @@ public record AuctionTimesUpdatedEvent(
       Instant newStartTime,
       Instant oldEndTime,
       Instant newEndTime,
-      ItemStatus status
+      String status
   ) {
     return new AuctionTimesUpdatedEvent(
         UUID.randomUUID().toString(),      // Auto-generate eventId for idempotency
@@ -67,6 +68,9 @@ public record AuctionTimesUpdatedEvent(
    * - Auditing/logging of what changed
    * - Conditional logic in consumers (e.g., only invalidate cache if endTime changed)
    * - Rollback scenarios (if needed)
+   *
+   * <p>Status is stored as String instead of enum to avoid coupling common-events
+   * to service-specific domain models.
    */
   public record AuctionTimesUpdatedData(
       Long itemId,
@@ -74,7 +78,7 @@ public record AuctionTimesUpdatedEvent(
       Instant newStartTime,
       Instant oldEndTime,
       Instant newEndTime,
-      ItemStatus status
+      String status  // ItemStatus as String for loose coupling (PENDING, ACTIVE, ENDED)
   ) {
   }
 }

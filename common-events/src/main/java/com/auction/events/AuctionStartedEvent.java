@@ -1,4 +1,4 @@
-package com.auction.itemservice.events;
+package com.auction.events;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -7,8 +7,10 @@ import java.util.UUID;
 /**
  * Event published when an auction transitions from PENDING to ACTIVE status.
  *
+ * <p>Publisher: Item Service
+ *
  * <p>Consumers:
- * - Bidding Service: Enable bidding on the item
+ * - Bidding Service: Cache auction metadata for bid validation
  * - Notification Service: Notify subscribers that auction has started
  *
  * <p>Event Envelope Pattern:

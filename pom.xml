@@ -18,6 +18,7 @@
     <name>Auction Platform</name>
 
     <modules>
+        <module>common-events</module>
         <module>api-gateway</module>
         <module>user-service</module>
         <module>item-service</module>
