@@ -24,3 +24,14 @@ Thumbs.db
 .env.local
 .env.*.local
 .envrc
+/ARCHITECTURE.md
+/Bidding-Service-API.postman_collection.json
+/BIDDING-SERVICE-TESTING-GUIDE.md
+/CLAUDE.md
+/clear-caches.sh
+/Integration-Testing.postman_collection.json
+/INTEGRATION-TESTING-GUIDE.md
+/Item-Service-API.postman_collection.json
+/.claude/settings.local.json
+/test-event-flow.sh
+/TESTING-GUIDE.md
