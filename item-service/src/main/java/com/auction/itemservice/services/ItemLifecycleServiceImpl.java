@@ -1,7 +1,7 @@
 package com.auction.itemservice.services;
 
-import com.auction.itemservice.events.AuctionEndedEvent;
-import com.auction.itemservice.events.AuctionStartedEvent;
+import com.auction.events.AuctionEndedEvent;
+import com.auction.events.AuctionStartedEvent;
 import com.auction.itemservice.events.EventPublisher;
 import com.auction.itemservice.exceptions.ConcurrentBidException;
 import com.auction.itemservice.exceptions.ItemNotFoundException;
@@ -13,11 +13,13 @@ import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -257,10 +259,25 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
 			log.info("updateCurrentPriceWithLock - updated currentPrice and winnerId for itemId: {} to {}, winner: {}",
 				itemId, newPrice, winnerId);
 		} finally {
-			String currentToken = redisTemplate.opsForValue().get(lockKey);
-			if (lockToken.equals(currentToken)) {
-				redisTemplate.delete(lockKey);
-				log.debug("updateCurrentPriceWithLock - lock released for itemId: {}", itemId);
+			// Atomic lock release using Lua script to prevent race condition:
+			// If we used GET + compare + DELETE, the lock could expire between GET and DELETE,
+			// causing us to delete another thread's lock. Lua scripts execute atomically on Redis.
+			String unlockScript = """
+				if redis.call('get', KEYS[1]) == ARGV[1] then
+				\treturn redis.call('del', KEYS[1])
+				else
+				\treturn 0
+				end
+				""";
+
+			Long result = redisTemplate.execute(
+				RedisScript.of(unlockScript, Long.class),
+				Collections.singletonList(lockKey),
+				lockToken
+			);
+
+			if (Long.valueOf(1L).equals(result)) {
+				log.debug("updateCurrentPriceWithLock - lock released atomically for itemId: {}", itemId);
 			} else {
 				log.warn(
 					"updateCurrentPriceWithLock - lock expired or was re-acquired by another process. Did not release. itemId: {}",

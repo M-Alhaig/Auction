@@ -3,7 +3,7 @@ package com.auction.itemservice.services;
 import com.auction.itemservice.dto.CreateItemRequest;
 import com.auction.itemservice.dto.ItemResponse;
 import com.auction.itemservice.dto.UpdateItemRequest;
-import com.auction.itemservice.events.AuctionTimesUpdatedEvent;
+import com.auction.events.AuctionTimesUpdatedEvent;
 import com.auction.itemservice.events.EventPublisher;
 import com.auction.itemservice.exceptions.FreezeViolationException;
 import com.auction.itemservice.exceptions.ItemNotFoundException;
@@ -13,6 +13,7 @@ import com.auction.itemservice.models.Item;
 import com.auction.itemservice.models.ItemStatus;
 import com.auction.itemservice.repositories.CategoryRepository;
 import com.auction.itemservice.repositories.ItemRepository;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -353,15 +354,27 @@ public class ItemServiceImpl implements ItemService {
    * @throws FreezeViolationException if the current time is within 24 hours of the auction start
    */
   private void validateNotInFreezePeriod(Item item) {
-    Instant now = Instant.now();
-    Instant freezeStartsAt = item.getStartTime().minus(FREEZE_PERIOD);
+    // Guard against null startTime (defensive programming)
+    Instant startTime = item.getStartTime();
+    if (startTime == null) {
+      log.debug("Freeze period check skipped - itemId: {}, startTime is null", item.getId());
+      return;  // No freeze period if auction has no start time yet
+    }
 
-    // Check if we're currently within the freeze period
-    if (now.isAfter(freezeStartsAt)) {
+    Instant now = Instant.now();
+    Instant freezeStartsAt = startTime.minus(FREEZE_PERIOD);
+
+    // Check if we're currently within the freeze period (boundary: >= freezeStartsAt)
+    // Using !isBefore ensures we catch the exact boundary instant
+    if (!now.isBefore(freezeStartsAt)) {
       log.warn("Freeze period violation - itemId: {}, startTime: {}, freezeStartsAt: {}, now: {}",
-          item.getId(), item.getStartTime(), freezeStartsAt, now);
-      throw FreezeViolationException.forTimeModification(
-          item.getId(), item.getStartTime(), freezeStartsAt);
+          item.getId(), startTime, freezeStartsAt, now);
+      throw new FreezeViolationException(
+          String.format(
+              "Cannot modify auction times for item %d. Auction is within 24-hour freeze period. "
+                  + "Start time: %s, Freeze began: %s. "
+                  + "Please contact support if you need to make changes.",
+              item.getId(), startTime, freezeStartsAt));
     }
 
     log.debug("Freeze period check passed - itemId: {}, freezeStartsAt: {}, now: {}",
@@ -371,6 +384,9 @@ public class ItemServiceImpl implements ItemService {
   /**
    * Check if auction times (startTime or endTime) have changed.
    *
+   * <p>Uses {@link java.util.Objects#equals} to safely handle null values.
+   * If either old or new time is null, they are considered different unless both are null.
+   *
    * @param oldStartTime the start time before update
    * @param oldEndTime the end time before update
    * @param newStartTime the start time after update
@@ -379,8 +395,9 @@ public class ItemServiceImpl implements ItemService {
    */
   private boolean hasTimesChanged(Instant oldStartTime, Instant oldEndTime,
                                    Instant newStartTime, Instant newEndTime) {
-    boolean startTimeChanged = !oldStartTime.equals(newStartTime);
-    boolean endTimeChanged = !oldEndTime.equals(newEndTime);
+    // Use Objects.equals to safely handle null values
+    boolean startTimeChanged = !Objects.equals(oldStartTime, newStartTime);
+    boolean endTimeChanged = !Objects.equals(oldEndTime, newEndTime);
     return startTimeChanged || endTimeChanged;
   }
 
@@ -401,7 +418,7 @@ public class ItemServiceImpl implements ItemService {
         item.getStartTime(),
         oldEndTime,
         item.getEndTime(),
-        item.getStatus()
+        item.getStatus().name()  // Convert ItemStatus enum to String
     );
 
     eventPublisher.publish(event);

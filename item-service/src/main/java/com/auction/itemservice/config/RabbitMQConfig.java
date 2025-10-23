@@ -2,6 +2,7 @@ package com.auction.itemservice.config;
 
 import com.auction.itemservice.exceptions.ItemNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.aopalliance.aop.Advice;
 import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
@@ -18,6 +19,7 @@ import org.springframework.boot.autoconfigure.amqp.SimpleRabbitListenerContainer
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.retry.backoff.ExponentialBackOffPolicy;
+import org.springframework.retry.interceptor.RetryOperationsInterceptor;
 import org.springframework.retry.policy.SimpleRetryPolicy;
 import org.springframework.retry.support.RetryTemplate;
 
@@ -167,6 +169,11 @@ public class RabbitMQConfig {
 	 *   <li>All other exceptions - Could be transient (DB timeout, network)</li>
 	 * </ul>
 	 *
+	 * <p><strong>Retry Configuration via adviceChain:</strong>
+	 * Uses {@link RetryInterceptorBuilder} to create a stateless retry interceptor that
+	 * integrates with RabbitMQ's acknowledgment system. The {@code setDefaultRequeueRejected(false)}
+	 * prevents failed messages from being requeued indefinitely - they go to DLQ instead.
+	 *
 	 * @param configurer Spring Boot auto-configurer
 	 * @param connectionFactory RabbitMQ connection factory
 	 * @return configured container factory with custom retry policy
@@ -181,9 +188,6 @@ public class RabbitMQConfig {
 		// Apply default Spring Boot configuration
 		configurer.configure(factory, connectionFactory);
 
-		// Configure the retry template with non-retryable exceptions
-		RetryTemplate retryTemplate = new RetryTemplate();
-
 		// Retry policy: max 3 attempts, but NOT for permanent errors
 		Map<Class<? extends Throwable>, Boolean> retryableExceptions = new HashMap<>();
 		retryableExceptions.put(ItemNotFoundException.class, false);  // Don't retry
@@ -196,16 +200,27 @@ public class RabbitMQConfig {
 				true,  // traverseCauses = true (check exception cause chain)
 				true   // defaultValue = true (retry by default for unlisted exceptions)
 		);
-		retryTemplate.setRetryPolicy(retryPolicy);
 
 		// Exponential backoff: 100ms -> 150ms -> 225ms (auction-critical timing)
 		ExponentialBackOffPolicy backOffPolicy = new ExponentialBackOffPolicy();
 		backOffPolicy.setInitialInterval(100);
 		backOffPolicy.setMultiplier(1.5);
 		backOffPolicy.setMaxInterval(500);
+
+		// Create retry template with configured policies
+		RetryTemplate retryTemplate = new RetryTemplate();
+		retryTemplate.setRetryPolicy(retryPolicy);
 		retryTemplate.setBackOffPolicy(backOffPolicy);
 
-		factory.setRetryTemplate(retryTemplate);
+		// Build retry interceptor using adviceChain (integrates with RabbitMQ ACK/NACK)
+		// RetryOperationsInterceptor wraps the retry logic as AOP advice
+		Advice retryInterceptor = new RetryOperationsInterceptor();
+		((RetryOperationsInterceptor) retryInterceptor).setRetryOperations(retryTemplate);
+
+		factory.setAdviceChain(retryInterceptor);
+
+		// CRITICAL: Prevent infinite requeue loops - failed messages go to DLQ
+		factory.setDefaultRequeueRejected(false);
 
 		// Set message converter
 		factory.setMessageConverter(jsonMessageConverter());
