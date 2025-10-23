@@ -1,16 +1,23 @@
 package com.auction.biddingservice.services;
 
+import com.auction.biddingservice.client.ItemServiceClient;
 import com.auction.biddingservice.dto.BidResponse;
+import com.auction.biddingservice.dto.ItemResponse;
 import com.auction.biddingservice.dto.PlaceBidRequest;
-import com.auction.biddingservice.events.BidPlacedEvent;
+import com.auction.events.BidPlacedEvent;
 import com.auction.biddingservice.events.EventPublisher;
-import com.auction.biddingservice.events.UserOutbidEvent;
+import com.auction.events.UserOutbidEvent;
+import com.auction.biddingservice.exceptions.AuctionEndedException;
+import com.auction.biddingservice.exceptions.AuctionNotActiveException;
 import com.auction.biddingservice.exceptions.BidLockException;
 import com.auction.biddingservice.exceptions.InvalidBidException;
 import com.auction.biddingservice.models.Bid;
+import com.auction.biddingservice.models.ItemStatus;
 import com.auction.biddingservice.repositories.BidRepository;
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,24 +62,31 @@ public class BidServiceImpl implements BidService {
   private final BidMapper bidMapper;
   private final EventPublisher eventPublisher;
   private final RedisTemplate<String, String> redisTemplate;
+  private final AuctionCacheService auctionCacheService;
+  private final ItemServiceClient itemServiceClient;
 
   private static final Duration LOCK_TIMEOUT = Duration.ofSeconds(5);
   private static final String LOCK_KEY_PREFIX = "lock:item:";
 
   /**
-   * Processes a bid for an item: validates against the current highest bid, persists the new bid, and publishes related events.
+   * Processes a bid for an item: validates against the current highest bid, persists the new bid,
+   * and publishes related events.
    *
-   * @param request   contains the target `itemId` and the `bidAmount` for the new bid
-   * @param bidderId  identifier of the user placing the bid
+   *
+   * @param request  contains the target `itemId` and the `bidAmount` for the new bid
+   * @param bidderId identifier of the user placing the bid
    * @return the newly persisted bid represented as the current highest `BidResponse`
    * @throws InvalidBidException if the bid amount is not greater than the current highest bid
-   * @throws BidLockException if a distributed lock for the item cannot be acquired
+   * @throws BidLockException    if a distributed lock for the item cannot be acquired
    */
   @Override
   public BidResponse placeBid(PlaceBidRequest request, UUID bidderId) {
     Long itemId = request.itemId();
     BigDecimal bidAmount = request.bidAmount();
     log.debug("placeBid - itemId: {}, bidderId: {}, bidAmount: {}", itemId, bidderId, bidAmount);
+
+    // Multi-layered auction status check with cache-first + API fallback
+    validateAuctionStatus(itemId);
 
     return executeWithLock(itemId, () -> {
       Optional<Bid> highestBidOpt = bidRepository.findFirstByItemIdOrderByBidAmountDesc(itemId);
@@ -85,8 +100,8 @@ public class BidServiceImpl implements BidService {
                   + highestBid.getBidAmount());
         }
       } else {
-        // TODO: Validate against the item's starting price by calling Item Service.
-        // This is required for the first bid on an item.
+        // First bid - validate against starting price using cache-first approach
+        validateFirstBid(itemId, bidAmount);
       }
 
       // All validation passed, so we can create and save the new bid.
@@ -115,9 +130,10 @@ public class BidServiceImpl implements BidService {
   /**
    * Retrieve paginated bid history for an item, marking which entry is the current highest bid.
    *
-   * @param itemId  the item's identifier
-   * @param pageable  pagination and sorting information
-   * @return a page of BidResponse objects for the item; each response has `isCurrentHighest` set to `true` for the current highest bid and `false` otherwise
+   * @param itemId   the item's identifier
+   * @param pageable pagination and sorting information
+   * @return a page of BidResponse objects for the item; each response has `isCurrentHighest` set to
+   * `true` for the current highest bid and `false` otherwise
    */
   @Override
   @Transactional(readOnly = true)
@@ -157,8 +173,7 @@ public class BidServiceImpl implements BidService {
     // 4. Else: return null
     log.debug("getHighestBid - itemId: {}", itemId);
     return bidRepository.findFirstByItemIdOrderByBidAmountDesc(itemId)
-        .map(bidMapper::toBidResponseAsHighest)
-        .orElse(null);
+        .map(bidMapper::toBidResponseAsHighest).orElse(null);
   }
 
   /**
@@ -167,9 +182,9 @@ public class BidServiceImpl implements BidService {
    * <p>Returns historical bid entries for the given bidder; each entry is a historical view and
    * has `isCurrentHighest` set to `false` (this method does not reflect current standing).
    *
-   * @param bidderId the UUID of the bidder whose bids to fetch
+   * @param bidderId            the UUID of the bidder whose bids to fetch
    * @param authenticatedUserId the UUID of the authenticated user
-   * @param pageable pagination and sorting information
+   * @param pageable            pagination and sorting information
    * @return a page of `BidResponse` objects representing the bidder's historical bids
    */
   @Override
@@ -186,9 +201,9 @@ public class BidServiceImpl implements BidService {
     //
     // Note: This is a simple history view, not "current standing" dashboard
 
-	  if (!bidderId.equals(authenticatedUserId)) {
-	//	  TODO: throw a security exception
-	  }
+    if (!bidderId.equals(authenticatedUserId)) {
+      //	  TODO: throw a security exception
+    }
 
     log.debug("getUserBids - bidderId: {}", bidderId);
     Page<Bid> bids = bidRepository.findByBidderId(bidderId, pageable);
@@ -196,17 +211,21 @@ public class BidServiceImpl implements BidService {
   }
 
   /**
-   * Retrieve a bidder's paginated bids for a specific item, marking which bid is currently the highest.
+   * Retrieve a bidder's paginated bids for a specific item, marking which bid is currently the
+   * highest.
    *
-   * @param itemId   the identifier of the item
-   * @param bidderId the identifier of the bidder whose bids to retrieve
+   * @param itemId              the identifier of the item
+   * @param bidderId            the identifier of the bidder whose bids to retrieve
    * @param authenticatedUserId the UUID of the authenticated user
-   * @param pageable pagination and sorting information
-   * @return a page of BidResponse objects for the given item and bidder; each entry has `isCurrentHighest` set to `true` when that bid is the current highest for the item, `false` otherwise
+   * @param pageable            pagination and sorting information
+   * @return a page of BidResponse objects for the given item and bidder; each entry has
+   * `isCurrentHighest` set to `true` when that bid is the current highest for the item, `false`
+   * otherwise
    */
   @Override
   @Transactional(readOnly = true)
-  public Page<BidResponse> getUserBidsForItem(Long itemId, UUID bidderId, UUID authenticatedUserId, Pageable pageable) {
+  public Page<BidResponse> getUserBidsForItem(Long itemId, UUID bidderId, UUID authenticatedUserId,
+      Pageable pageable) {
     //
     // Steps:
     // 1. Log query (debug level)
@@ -218,19 +237,16 @@ public class BidServiceImpl implements BidService {
     //    - Call bidMapper.toBidResponse(bid, isCurrentHighest)
     // 6. Return mapped page
 
-	  if (!bidderId.equals(authenticatedUserId)) {
-		  //	  TODO: throw a security exception
-	  }
+    if (!bidderId.equals(authenticatedUserId)) {
+      //	  TODO: throw a security exception
+    }
 
     log.debug("getUserBidsForItem - itemId: {}, bidderId: {}", itemId, bidderId);
     Page<Bid> bids = bidRepository.findByItemIdAndBidderId(itemId, bidderId, pageable);
-    Long highestBidId = bidRepository.findFirstByItemIdOrderByBidAmountDesc(itemId)
-        .map(Bid::getId)
+    Long highestBidId = bidRepository.findFirstByItemIdOrderByBidAmountDesc(itemId).map(Bid::getId)
         .orElse(null);
 
-    return bids.map(bid ->
-        bidMapper.toBidResponse(bid, bid.getId().equals(highestBidId))
-    );
+    return bids.map(bid -> bidMapper.toBidResponse(bid, bid.getId().equals(highestBidId)));
   }
 
   /**
@@ -267,9 +283,9 @@ public class BidServiceImpl implements BidService {
     // 2. Query: findDistinctItemIdsByBidderId(bidderId) → List<Long>
     // 3. Return list
 
-	  if (!bidderId.equals(authenticatedUserId)) {
-		  //	  TODO: throw a security exception
-	  }
+    if (!bidderId.equals(authenticatedUserId)) {
+      //	  TODO: throw a security exception
+    }
 
     log.debug("getItemsUserHasBidOn - bidderId: {}", bidderId);
     List<Long> itemIds = bidRepository.findDistinctItemIdsByBidderId(bidderId);
@@ -277,14 +293,157 @@ public class BidServiceImpl implements BidService {
     return itemIds;
   }
 
+  // ==================== VALIDATION HELPERS ====================
+
+  /**
+   * Validates the first bid on an item using cache-first strategy with API fallback.
+   *
+   * <p><strong>Cache-First Architecture:</strong>
+   * <pre>
+   * 1. Fast Path (99% cases): Check Redis cache for starting price (~1ms)
+   * 2. Slow Path (1% cases): Call Item Service API if cache miss (~50ms)
+   * 3. Cache Warming: Store fetched metadata in Redis for future bids
+   * </pre>
+   *
+   * <p><strong>Validation Rules:</strong>
+   * <ul>
+   *   <li>Item must exist (404 from API → InvalidBidException)</li>
+   *   <li>Item must be ACTIVE (not PENDING or ENDED)</li>
+   *   <li>Bid amount must be >= starting price</li>
+   * </ul>
+   *
+   * @param itemId the auction item ID
+   * @param bidAmount the bid amount to validate
+   * @throws InvalidBidException if validation fails
+   */
+  private void validateFirstBid(Long itemId, BigDecimal bidAmount) {
+    log.debug("validateFirstBid - checking starting price for itemId: {}", itemId);
+
+    // FAST PATH: Try cache first
+    BigDecimal startingPrice = auctionCacheService.getStartingPrice(itemId);
+
+    if (startingPrice == null) {
+      // CACHE MISS: Fallback to Item Service API
+      log.info("Starting price cache miss for itemId: {} - fetching from Item Service", itemId);
+
+      ItemResponse item = itemServiceClient.getItem(itemId);
+
+      // Validate item status
+      if (item.status() != ItemStatus.ACTIVE) {
+        log.warn("First bid rejected - itemId: {} has status: {}, expected: ACTIVE",
+            itemId, item.status());
+        throw new InvalidBidException(
+            "Cannot bid on this item. Item status: " + item.status());
+      }
+
+      startingPrice = item.startingPrice();
+
+      // Cache for future bids (warm the cache)
+      auctionCacheService.cacheAuctionMetadata(itemId, startingPrice, item.endTime(), item.status());
+      log.info("Cached auction metadata from API fallback - itemId: {}, startingPrice: {}, status: {}",
+          itemId, startingPrice, item.status());
+    }
+
+    // Validate bid amount
+    if (bidAmount.compareTo(startingPrice) < 0) {
+      log.warn("First bid rejected - itemId: {}, bidAmount: {} < startingPrice: {}",
+          itemId, bidAmount, startingPrice);
+      throw new InvalidBidException(
+          "Bid amount must be at least the starting price of " + startingPrice);
+    }
+
+    log.debug("validateFirstBid - passed for itemId: {}, bidAmount: {} >= startingPrice: {}",
+        itemId, bidAmount, startingPrice);
+  }
+
+  /**
+   * Validates that an auction is ACTIVE using a cache-first strategy with API fallback.
+   *
+   * <p><strong>Validation Flow:</strong>
+   * <pre>
+   * Step 1: Check metadata cache for status (~1ms)
+   *   - ACTIVE → Allow bid ✅
+   *   - ENDED → Throw AuctionEndedException (409 CONFLICT)
+   *   - PENDING → Throw AuctionNotActiveException (400 BAD_REQUEST)
+   *
+   * Step 2: Cache miss → Fallback to Item Service API (~50ms)
+   *   - Fetch item details and status
+   *   - Cache the metadata with status
+   *   - Apply same status validation as above
+   * </pre>
+   *
+   * <p><strong>Security:</strong>
+   * This is a fail-closed system. If status cannot be determined (cache miss),
+   * the method falls back to the authoritative Item Service API. It NEVER assumes
+   * a status, preventing bids on PENDING or ENDED auctions due to stale/missing cache.
+   *
+   * <p><strong>Status Meanings:</strong>
+   * <ul>
+   *   <li>ACTIVE - Auction accepting bids (normal flow)</li>
+   *   <li>PENDING - Auction not started yet (400 BAD_REQUEST - client can retry later)</li>
+   *   <li>ENDED - Auction closed (409 CONFLICT - state conflict, cannot retry)</li>
+   * </ul>
+   *
+   * @param itemId the auction item ID to validate
+   * @throws AuctionNotActiveException if the auction is PENDING (400 BAD_REQUEST)
+   * @throws AuctionEndedException if the auction is ENDED (409 CONFLICT)
+   */
+  private void validateAuctionStatus(Long itemId) {
+    // Step 1: Check metadata cache for status
+    ItemStatus status = auctionCacheService.getStatus(itemId);
+
+    if (status != null) {
+      // Cache HIT - validate status
+      log.debug("validateAuctionStatus - cache hit - itemId: {}, status: {}", itemId, status);
+
+      if (status == ItemStatus.ACTIVE) {
+        return; // ✅ Auction is active, proceed with bid
+      } else if (status == ItemStatus.ENDED) {
+        Instant endTime = auctionCacheService.getAuctionEndTime(itemId);
+        log.warn("Bid rejected - Auction ENDED (cached) - itemId: {}, endTime: {}", itemId, endTime);
+        throw new AuctionEndedException(itemId, endTime);
+      } else if (status == ItemStatus.PENDING) {
+        log.warn("Bid rejected - Auction PENDING (cached) - itemId: {}", itemId);
+        throw new AuctionNotActiveException(itemId);
+      }
+    }
+
+    // Step 2: Cache MISS - fallback to Item Service API
+    log.info("Auction status cache miss for itemId: {} - fetching from Item Service", itemId);
+
+    ItemResponse item = itemServiceClient.getItem(itemId);
+
+    // Cache the fetched metadata with status
+    auctionCacheService.cacheAuctionMetadata(itemId, item.startingPrice(), item.endTime(), item.status());
+    log.info("Cached auction metadata from API - itemId: {}, status: {}", itemId, item.status());
+
+    // Validate status from API response
+    if (item.status() == ItemStatus.ACTIVE) {
+      log.debug("validateAuctionStatus - passed (API) - itemId: {}, status: ACTIVE", itemId);
+      return; // ✅ Auction is active, proceed with bid
+    } else if (item.status() == ItemStatus.ENDED) {
+      // Also cache in ended-flag cache for faster future lookups
+      auctionCacheService.markAuctionEnded(itemId, item.endTime());
+      log.warn("Bid rejected - Auction ENDED (API) - itemId: {}, endTime: {}", itemId, item.endTime());
+      throw new AuctionEndedException(itemId, item.endTime());
+    } else if (item.status() == ItemStatus.PENDING) {
+      log.warn("Bid rejected - Auction PENDING (API) - itemId: {}", itemId);
+      throw new AuctionNotActiveException(itemId);
+    }
+
+    // Unknown status - should never happen, but fail closed
+    log.error("Unknown auction status from API - itemId: {}, status: {}", itemId, item.status());
+    throw new IllegalStateException("Unknown auction status: " + item.status());
+  }
+
   // ==================== REDIS LOCK HELPER ====================
 
   /**
    * Execute an operation while holding a Redis-backed distributed lock for the given item.
    *
-   * <p>The method acquires a per-item lock (key "lock:item:{itemId}") with a 5-second expiration,
-   * runs the provided operation if the lock is obtained, and releases the lock only if the
-   * release token matches the one used to acquire it.
+   * <p>The method acquires a per-item lock (key "lock:item:{itemId}") with a 5-second
+   * expiration, runs the provided operation if the lock is obtained, and releases the lock only if
+   * the release token matches the one used to acquire it.
    *
    * @param itemId    the ID of the item to lock
    * @param operation the operation to execute while the lock is held
@@ -310,12 +469,25 @@ public class BidServiceImpl implements BidService {
       log.debug("executeWithLock - lock acquired for itemId: {}", itemId);
       return operation.get();
     } finally {
-      // Release the lock using a non-atomic 'check-then-delete'.
-      // This avoids Lua but has a small potential race condition.
-      String currentToken = redisTemplate.opsForValue().get(lockKey);
-      if (lockToken.equals(currentToken)) {
-        redisTemplate.delete(lockKey);
-        log.debug("executeWithLock - lock released for itemId: {}", itemId);
+      // Atomic lock release using Lua script to prevent race condition:
+      // If we used GET + compare + DELETE, the lock could expire between GET and DELETE,
+      // causing us to delete another thread's lock. Lua scripts execute atomically on Redis.
+      String unlockScript = """
+          if redis.call('get', KEYS[1]) == ARGV[1] then
+              return redis.call('del', KEYS[1])
+          else
+              return 0
+          end
+          """;
+
+      Long result = redisTemplate.execute(
+          RedisScript.of(unlockScript, Long.class),
+          Collections.singletonList(lockKey),
+          lockToken
+      );
+
+      if (Long.valueOf(1L).equals(result)) {
+        log.debug("executeWithLock - lock released atomically for itemId: {}", itemId);
       } else {
         log.warn(
             "executeWithLock - lock expired or was re-acquired by another process. Did not release. itemId: {}",
@@ -329,9 +501,9 @@ public class BidServiceImpl implements BidService {
   /**
    * Publish a BidPlacedEvent for the given bid.
    *
-   * <p>Creates and publishes an event that contains the bid's item ID, bidder ID, amount, and timestamp
-   * so other services can react (for example: Item Service to update the current price and
-   * Notification Service to push real-time updates).
+   * <p>Creates and publishes an event that contains the bid's item ID, bidder ID, amount, and
+   * timestamp so other services can react (for example: Item Service to update the current price
+   * and Notification Service to push real-time updates).
    *
    * @param bid the persisted bid to announce
    */
@@ -345,18 +517,18 @@ public class BidServiceImpl implements BidService {
         bid.getBidAmount(), bid.getTimestamp());
 
     eventPublisher.publish(event);
-    log.debug("Published BidPlacedEvent - bidId: {}, itemId: {}, eventId: {}",
-        bid.getId(), bid.getItemId(), event.eventId());
+    log.debug("Published BidPlacedEvent - bidId: {}, itemId: {}, eventId: {}", bid.getId(),
+        bid.getItemId(), event.eventId());
   }
 
   /**
    * Publish an event notifying that a user has been outbid on an item.
-   *
-   * Creates and publishes a UserOutbidEvent containing the item ID, the previous highest
-   * bidder's ID, the new bidder's ID, and the new bid amount.
+   * <p>
+   * Creates and publishes a UserOutbidEvent containing the item ID, the previous highest bidder's
+   * ID, the new bidder's ID, and the new bid amount.
    *
    * @param previousHighestBid the bid that was previously the highest for the item
-   * @param newBid the bid that became the new highest for the item
+   * @param newBid             the bid that became the new highest for the item
    */
   private void publishUserOutbidEvent(Bid previousHighestBid, Bid newBid) {
     //

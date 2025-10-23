@@ -3,6 +3,9 @@ package com.auction.itemservice.services;
 import com.auction.itemservice.dto.CreateItemRequest;
 import com.auction.itemservice.dto.ItemResponse;
 import com.auction.itemservice.dto.UpdateItemRequest;
+import com.auction.events.AuctionTimesUpdatedEvent;
+import com.auction.itemservice.events.EventPublisher;
+import com.auction.itemservice.exceptions.FreezeViolationException;
 import com.auction.itemservice.exceptions.ItemNotFoundException;
 import com.auction.itemservice.exceptions.UnauthorizedException;
 import com.auction.itemservice.models.Category;
@@ -10,6 +13,7 @@ import com.auction.itemservice.models.Item;
 import com.auction.itemservice.models.ItemStatus;
 import com.auction.itemservice.repositories.CategoryRepository;
 import com.auction.itemservice.repositories.ItemRepository;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -18,6 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 
@@ -34,6 +40,15 @@ public class ItemServiceImpl implements ItemService {
   private final ItemRepository itemRepository;
   private final CategoryRepository categoryRepository;
   private final ItemMapper itemMapper;
+  private final EventPublisher eventPublisher;
+
+  /**
+   * Freeze period duration: 24 hours before auction start.
+   *
+   * <p>Once an auction is within this window of its start time, sellers cannot modify
+   * startTime or endTime to prevent last-minute rule changes that could disadvantage bidders.
+   */
+  private static final Duration FREEZE_PERIOD = Duration.ofHours(24);
 
   /**
    * Create a new auction item using the provided request data and associate it with the given seller.
@@ -60,7 +75,10 @@ public class ItemServiceImpl implements ItemService {
   /**
    * Updates fields of an existing item owned by the authenticated user when the item is in PENDING status.
    *
-   * Applies the non-null fields from the provided request to the item, persists the changes, and returns the updated item representation.
+   * <p>Applies the non-null fields from the provided request to the item, persists the changes, and returns the updated item representation.
+   *
+   * <p><strong>Event Publishing:</strong> If startTime or endTime is modified, publishes AuctionTimesUpdatedEvent
+   * to notify downstream services (e.g., Bidding Service invalidates cached metadata).
    *
    * @param itemId              the identifier of the item to update
    * @param request             the update payload containing fields to apply
@@ -69,6 +87,7 @@ public class ItemServiceImpl implements ItemService {
    * @throws ItemNotFoundException if no item exists with the given {@code itemId}
    * @throws UnauthorizedException if the authenticated user is not the item's seller
    * @throws IllegalStateException if the item is not in PENDING status
+   * @throws FreezeViolationException if attempting to modify times within 24 hours of start
    */
   @Override
   public ItemResponse updateItem(Long itemId, UpdateItemRequest request, UUID authenticatedUserId) {
@@ -79,10 +98,20 @@ public class ItemServiceImpl implements ItemService {
     validateOwnership(item, authenticatedUserId);
     validateItemIsPending(item);
 
+    // Capture old times BEFORE update (for event publishing)
+    Instant oldStartTime = item.getStartTime();
+    Instant oldEndTime = item.getEndTime();
+
     updateItemFields(request, item);
     item = itemRepository.save(item);
 
-    log.info("Item updated - ID: {}, seller: {}", itemId, authenticatedUserId);
+    // Check if times changed and publish event for cache invalidation
+    boolean timesChanged = hasTimesChanged(oldStartTime, oldEndTime, item.getStartTime(), item.getEndTime());
+    if (timesChanged) {
+      publishAuctionTimesUpdatedEvent(item, oldStartTime, oldEndTime);
+    }
+
+    log.info("Item updated - ID: {}, seller: {}, timesChanged: {}", itemId, authenticatedUserId, timesChanged);
 
     return itemMapper.toItemResponse(item);
   }
@@ -269,8 +298,14 @@ public class ItemServiceImpl implements ItemService {
    *
    * @param request the update request containing optional fields to apply
    * @param item the item entity to modify in-place
+   * @throws FreezeViolationException if attempting to modify startTime or endTime within the freeze period
    */
   private void updateItemFields(UpdateItemRequest request, Item item) {
+    // Check freeze period BEFORE modifying auction times
+    if (request.startTime() != null || request.endTime() != null) {
+      validateNotInFreezePeriod(item);
+    }
+
     if (request.title() != null) {
       item.setTitle(request.title());
     }
@@ -306,5 +341,91 @@ public class ItemServiceImpl implements ItemService {
     if (request.endTime() != null) {
       item.setEndTime(request.endTime());
     }
+  }
+
+  /**
+   * Validates that the item is not within the freeze period for time modifications.
+   *
+   * <p>The freeze period begins 24 hours before the auction's scheduled start time.
+   * Once inside this window, startTime and endTime cannot be modified to ensure fairness
+   * and prevent sellers from changing rules after bidders have made decisions.
+   *
+   * @param item the item whose freeze period status will be checked
+   * @throws FreezeViolationException if the current time is within 24 hours of the auction start
+   */
+  private void validateNotInFreezePeriod(Item item) {
+    // Guard against null startTime (defensive programming)
+    Instant startTime = item.getStartTime();
+    if (startTime == null) {
+      log.debug("Freeze period check skipped - itemId: {}, startTime is null", item.getId());
+      return;  // No freeze period if auction has no start time yet
+    }
+
+    Instant now = Instant.now();
+    Instant freezeStartsAt = startTime.minus(FREEZE_PERIOD);
+
+    // Check if we're currently within the freeze period (boundary: >= freezeStartsAt)
+    // Using !isBefore ensures we catch the exact boundary instant
+    if (!now.isBefore(freezeStartsAt)) {
+      log.warn("Freeze period violation - itemId: {}, startTime: {}, freezeStartsAt: {}, now: {}",
+          item.getId(), startTime, freezeStartsAt, now);
+      throw new FreezeViolationException(
+          String.format(
+              "Cannot modify auction times for item %d. Auction is within 24-hour freeze period. "
+                  + "Start time: %s, Freeze began: %s. "
+                  + "Please contact support if you need to make changes.",
+              item.getId(), startTime, freezeStartsAt));
+    }
+
+    log.debug("Freeze period check passed - itemId: {}, freezeStartsAt: {}, now: {}",
+        item.getId(), freezeStartsAt, now);
+  }
+
+  /**
+   * Check if auction times (startTime or endTime) have changed.
+   *
+   * <p>Uses {@link java.util.Objects#equals} to safely handle null values.
+   * If either old or new time is null, they are considered different unless both are null.
+   *
+   * @param oldStartTime the start time before update
+   * @param oldEndTime the end time before update
+   * @param newStartTime the start time after update
+   * @param newEndTime the end time after update
+   * @return true if either startTime or endTime changed, false otherwise
+   */
+  private boolean hasTimesChanged(Instant oldStartTime, Instant oldEndTime,
+                                   Instant newStartTime, Instant newEndTime) {
+    // Use Objects.equals to safely handle null values
+    boolean startTimeChanged = !Objects.equals(oldStartTime, newStartTime);
+    boolean endTimeChanged = !Objects.equals(oldEndTime, newEndTime);
+    return startTimeChanged || endTimeChanged;
+  }
+
+  /**
+   * Publish AuctionTimesUpdatedEvent to notify downstream services of time changes.
+   *
+   * <p>Primary consumer: Bidding Service invalidates cached metadata to prevent
+   * stale time-based validation (e.g., rejecting valid bids after extension).
+   *
+   * @param item the updated item with new times
+   * @param oldStartTime the previous start time
+   * @param oldEndTime the previous end time
+   */
+  private void publishAuctionTimesUpdatedEvent(Item item, Instant oldStartTime, Instant oldEndTime) {
+    AuctionTimesUpdatedEvent event = AuctionTimesUpdatedEvent.create(
+        item.getId(),
+        oldStartTime,
+        item.getStartTime(),
+        oldEndTime,
+        item.getEndTime(),
+        item.getStatus().name()  // Convert ItemStatus enum to String
+    );
+
+    eventPublisher.publish(event);
+
+    log.info("Published AuctionTimesUpdatedEvent - itemId: {}, oldStart: {}, newStart: {}, " +
+            "oldEnd: {}, newEnd: {}, eventId: {}",
+        event.data().itemId(), oldStartTime, item.getStartTime(),
+        oldEndTime, item.getEndTime(), event.eventId());
   }
 }

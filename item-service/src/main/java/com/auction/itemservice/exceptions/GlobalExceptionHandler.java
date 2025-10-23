@@ -7,9 +7,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -60,6 +62,35 @@ public class GlobalExceptionHandler {
       HttpServletRequest request
   ) {
     log.warn("Unauthorized access attempt - path: {}, message: {}", request.getRequestURI(),
+        ex.getMessage());
+
+    ErrorResponse error = new ErrorResponse(
+        HttpStatus.FORBIDDEN.value(),
+        "Forbidden",
+        ex.getMessage(),
+        request.getRequestURI()
+    );
+    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+  }
+
+  /**
+   * Handle FreezeViolationException by returning an ErrorResponse for HTTP 403 Forbidden.
+   *
+   * <p>Triggered when a seller attempts to modify auction times (startTime or endTime)
+   * within 24 hours of the auction's scheduled start. This enforces the freeze period
+   * business rule to maintain fairness and trust.
+   *
+   * @param ex the triggered FreezeViolationException
+   * @param request the incoming request whose URI is included in the error response
+   * @return ResponseEntity containing an ErrorResponse with HTTP status 403 (Forbidden),
+   *         the exception message describing the freeze period violation, and the request URI
+   */
+  @ExceptionHandler(FreezeViolationException.class)
+  public ResponseEntity<ErrorResponse> handleFreezeViolation(
+      FreezeViolationException ex,
+      HttpServletRequest request
+  ) {
+    log.warn("Freeze period violation - path: {}, message: {}", request.getRequestURI(),
         ex.getMessage());
 
     ErrorResponse error = new ErrorResponse(
@@ -287,6 +318,65 @@ public class GlobalExceptionHandler {
     }
 
     log.warn("Invalid request body - path: {}, message: {}", request.getRequestURI(), message);
+
+    ErrorResponse error = new ErrorResponse(
+        HttpStatus.BAD_REQUEST.value(),
+        BAD_REQUEST,
+        message,
+        request.getRequestURI()
+    );
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+  }
+
+  /**
+   * Handle requests to non-existent endpoints or resources.
+   *
+   * <p>Triggered when Spring cannot find a matching endpoint for the request path,
+   * such as typos in URLs, incorrect HTTP methods, or accessing non-existent static resources.
+   *
+   * @param ex the NoResourceFoundException thrown by Spring MVC
+   * @param request the HTTP request whose URI is included in the error response
+   * @return an ErrorResponse with HTTP status 404, error "Not Found", a message indicating
+   *         the endpoint does not exist, and the request URI
+   */
+  @ExceptionHandler(NoResourceFoundException.class)
+  public ResponseEntity<ErrorResponse> handleNoResourceFound(
+      NoResourceFoundException ex,
+      HttpServletRequest request
+  ) {
+    log.warn("Endpoint not found - path: {}, method: {}", request.getRequestURI(),
+        request.getMethod());
+
+    ErrorResponse error = new ErrorResponse(
+        HttpStatus.NOT_FOUND.value(),
+        "Not Found",
+        "The requested endpoint does not exist",
+        request.getRequestURI()
+    );
+    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+  }
+
+  /**
+   * Handle missing required request headers.
+   *
+   * <p>Triggered when a controller method requires a request header (e.g., X-Auth-Id)
+   * but the header is not present in the request or is present but empty.
+   *
+   * @param ex the MissingRequestHeaderException describing which header is missing
+   * @param request the HTTP request whose URI is included in the error response
+   * @return an ErrorResponse with HTTP status 400, error "Bad Request", a message indicating
+   *         which header is required, and the request URI
+   */
+  @ExceptionHandler(MissingRequestHeaderException.class)
+  public ResponseEntity<ErrorResponse> handleMissingRequestHeader(
+      MissingRequestHeaderException ex,
+      HttpServletRequest request
+  ) {
+    String headerName = ex.getHeaderName();
+    String message = String.format("Required request header '%s' is missing or empty", headerName);
+
+    log.warn("Missing required header - path: {}, header: {}", request.getRequestURI(),
+        headerName);
 
     ErrorResponse error = new ErrorResponse(
         HttpStatus.BAD_REQUEST.value(),

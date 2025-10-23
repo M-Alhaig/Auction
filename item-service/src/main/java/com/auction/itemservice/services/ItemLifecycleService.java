@@ -3,6 +3,7 @@ package com.auction.itemservice.services;
 import com.auction.itemservice.models.Item;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Service interface for managing auction item lifecycle. Handles system-driven operations:
@@ -57,18 +58,20 @@ public interface ItemLifecycleService {
   // ==================== PRICE UPDATES (CONCURRENCY CONTROL) ====================
 
   /**
- * Update an item's current price using a distributed lock to ensure concurrent bids are serialized.
+ * Update an item's current price and winner using a distributed lock to ensure concurrent bids are serialized.
  *
- * Updates the stored current price to {@code newPrice} only if {@code newPrice} is greater than the
- * item's existing current price. Intended to be invoked when a new bid is processed.
+ * <p>Updates the stored current price to {@code newPrice} and sets {@code winnerId} as the new highest bidder.
+ * Validates that {@code newPrice} is greater than the item's existing current price. Intended to be invoked
+ * when a BidPlacedEvent is consumed from the message queue.
  *
  * @param itemId   identifier of the item to update
+ * @param winnerId the UUID of the bidder who placed the highest bid
  * @param newPrice the bid price to apply as the new current price
  * @throws com.auction.itemservice.exceptions.ItemNotFoundException  if the item does not exist
  * @throws com.auction.itemservice.exceptions.ConcurrentBidException if a distributed lock cannot be acquired (retry suggested)
  * @throws IllegalArgumentException                                   if {@code newPrice} is less than or equal to the current price
  */
-  void updateCurrentPriceWithLock(Long itemId, BigDecimal newPrice);
+  void updateCurrentPriceWithLock(Long itemId, UUID winnerId, BigDecimal newPrice);
 
   // ==================== VALIDATION FOR BIDDING SERVICE ====================
 

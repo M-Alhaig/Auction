@@ -13,10 +13,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+@Validated
 @Slf4j
 @RestController
 @RequestMapping("/api/items")
@@ -181,4 +183,8 @@ public class ItemController {
     Page<ItemResponse> response = itemService.getActiveAuctionsEndingSoon(pageable);
     return ResponseEntity.ok(response);
   }
+
+  // Note: Manual auction lifecycle endpoints (start/end) have been moved to ManualLifecycleController
+  // to properly enforce profile-based restrictions. @Profile on handler methods does not work.
+  // See: item-service/src/main/java/com/auction/itemservice/controllers/ManualLifecycleController.java
 }

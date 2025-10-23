@@ -1,4 +1,4 @@
-package com.auction.itemservice.events;
+package com.auction.events;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -6,6 +6,8 @@ import java.util.UUID;
 
 /**
  * Event published when an auction transitions from ACTIVE to ENDED status.
+ *
+ * <p>Publisher: Item Service
  *
  * <p>Consumers:
  * - Bidding Service: Stop accepting bids for this item
