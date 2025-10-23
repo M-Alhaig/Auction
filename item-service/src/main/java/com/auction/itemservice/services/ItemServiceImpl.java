@@ -75,7 +75,7 @@ public class ItemServiceImpl implements ItemService {
   /**
    * Updates fields of an existing item owned by the authenticated user when the item is in PENDING status.
    *
-   * Applies the non-null fields from the provided request to the item, persists the changes, and returns the updated item representation.
+   * <p>Applies the non-null fields from the provided request to the item, persists the changes, and returns the updated item representation.
    *
    * <p><strong>Event Publishing:</strong> If startTime or endTime is modified, publishes AuctionTimesUpdatedEvent
    * to notify downstream services (e.g., Bidding Service invalidates cached metadata).

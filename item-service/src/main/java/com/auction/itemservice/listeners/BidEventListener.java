@@ -2,7 +2,6 @@ package com.auction.itemservice.listeners;
 
 
 import com.auction.events.BidPlacedEvent;
-import com.auction.itemservice.exceptions.ConcurrentBidException;
 import com.auction.itemservice.exceptions.ConcurrentEventProcessingException;
 import com.auction.itemservice.exceptions.ItemNotFoundException;
 import com.auction.itemservice.services.ItemLifecycleServiceImpl;
