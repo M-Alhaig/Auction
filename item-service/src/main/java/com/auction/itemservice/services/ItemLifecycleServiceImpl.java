@@ -363,15 +363,16 @@ public class ItemLifecycleServiceImpl implements ItemLifecycleService {
 			item.getSellerId(),
 			item.getTitle(),
 			item.getEndTime(),
-			item.getCurrentPrice(),
-			item.getWinnerId()  // Now properly tracked via BidPlacedEvent consumption
+			item.getStartingPrice(),  // Original starting price
+			item.getCurrentPrice(),   // Final price
+			item.getWinnerId()        // Now properly tracked via BidPlacedEvent consumption
 		);
 
 		eventPublisher.publish(event);
 
 		log.debug(
-			"Published AuctionEndedEvent - itemId: {}, title: '{}', finalPrice: {}, winnerId: {}, eventId: {}",
-			event.data().itemId(), event.data().title(), event.data().finalPrice(),
-			event.data().winnerId(), event.eventId());
+			"Published AuctionEndedEvent - itemId: {}, title: '{}', startingPrice: {}, finalPrice: {}, winnerId: {}, eventId: {}",
+			event.data().itemId(), event.data().title(), event.data().startingPrice(),
+			event.data().finalPrice(), event.data().winnerId(), event.eventId());
 	}
 }
