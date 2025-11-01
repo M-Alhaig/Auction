@@ -1,5 +1,6 @@
 package com.auction.biddingservice.listeners;
 
+import com.auction.biddingservice.client.ItemServiceClient;
 import com.auction.events.AuctionEndedEvent;
 import com.auction.events.AuctionStartedEvent;
 import com.auction.events.AuctionTimesUpdatedEvent;
@@ -58,6 +59,7 @@ public class AuctionEventListener {
 
   private final AuctionCacheService auctionCacheService;
   private final RedisTemplate<String, String> redisTemplate;
+  private final ItemServiceClient itemServiceClient;
 
   private static final Duration LOCK_TIMEOUT = Duration.ofHours(1);
   private static final String LOCK_KEY_PREFIX = "event:state:";
@@ -200,7 +202,7 @@ public class AuctionEventListener {
     // Update metadata cache status to ENDED, preserving original startingPrice if cached
     BigDecimal startingPrice = Optional.ofNullable(
             auctionCacheService.getStartingPrice(event.data().itemId()))
-        .orElse(event.data().finalPrice()); // fallback only if unknown
+        .orElse(itemServiceClient.getItem(event.data().itemId()).startingPrice()); // fallback only if unknown
     auctionCacheService.cacheAuctionMetadata(event.data().itemId(), startingPrice,
         event.data().endTime(), ItemStatus.ENDED);
 
