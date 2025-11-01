@@ -26,7 +26,7 @@ import java.util.UUID;
  * </ul>
  *
  * <p><strong>Purpose:</strong> Manual auction lifecycle control for testing and development.
- * In production, all auction lifecycle transitions are managed automatically by the scheduler
+ * In production, the scheduler manages all auction lifecycle transitions automatically
  * based on startTime and endTime.
  *
  * @see ItemLifecycleService

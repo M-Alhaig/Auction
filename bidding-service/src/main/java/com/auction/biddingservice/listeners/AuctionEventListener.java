@@ -6,8 +6,10 @@ import com.auction.events.AuctionTimesUpdatedEvent;
 import com.auction.biddingservice.exceptions.ConcurrentEventProcessingException;
 import com.auction.biddingservice.models.ItemStatus;
 import com.auction.biddingservice.services.AuctionCacheService;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitHandler;
@@ -195,9 +197,13 @@ public class AuctionEventListener {
     // Mark auction as ended in dedicated ended-flag cache
     auctionCacheService.markAuctionEnded(event.data().itemId(), event.data().endTime());
 
-    // Also update metadata cache status to ENDED
-    auctionCacheService.cacheAuctionMetadata(event.data().itemId(), event.data().finalPrice(),
+    // Update metadata cache status to ENDED, preserving original startingPrice if cached
+    BigDecimal startingPrice = Optional.ofNullable(
+            auctionCacheService.getStartingPrice(event.data().itemId()))
+        .orElse(event.data().finalPrice()); // fallback only if unknown
+    auctionCacheService.cacheAuctionMetadata(event.data().itemId(), startingPrice,
         event.data().endTime(), ItemStatus.ENDED);
+
     log.info("Marked auction as ended - itemId: {}, finalPrice: {}, status: ENDED",
         event.data().itemId(), event.data().finalPrice());
   }
