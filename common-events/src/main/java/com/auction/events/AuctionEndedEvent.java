@@ -33,12 +33,13 @@ public record AuctionEndedEvent(
   /**
    * Factory method to create event with auto-generated metadata.
    *
-   * @param itemId     the auction item ID
-   * @param sellerId   the seller's user ID
-   * @param title      the auction title
-   * @param endTime    when the auction ended (UTC)
-   * @param finalPrice the final winning bid (or startingPrice if no bids)
-   * @param winnerId   the winning bidder's ID (null if no bids)
+   * @param itemId        the auction item ID
+   * @param sellerId      the seller's user ID
+   * @param title         the auction title
+   * @param endTime       when the auction ended (UTC)
+   * @param startingPrice the original starting price of the auction
+   * @param finalPrice    the final winning bid (or startingPrice if no bids)
+   * @param winnerId      the winning bidder's ID (null if no bids)
    * @return the constructed event ready for publishing with UTC timestamps
    */
   public static AuctionEndedEvent create(
@@ -46,6 +47,7 @@ public record AuctionEndedEvent(
       UUID sellerId,
       String title,
       Instant endTime,
+      BigDecimal startingPrice,
       BigDecimal finalPrice,
       UUID winnerId
   ) {
@@ -53,7 +55,7 @@ public record AuctionEndedEvent(
         UUID.randomUUID().toString(),   // Auto-generate eventId
         "AuctionEndedEvent",            // Event type for routing
         Instant.now(),                  // Current UTC timestamp
-        new AuctionEndedData(itemId, sellerId, title, endTime, finalPrice, winnerId)
+        new AuctionEndedData(itemId, sellerId, title, endTime, startingPrice, finalPrice, winnerId)
     );
   }
 
@@ -65,8 +67,9 @@ public record AuctionEndedEvent(
       UUID sellerId,
       String title,
       Instant endTime,
-      BigDecimal finalPrice,
-      UUID winnerId  // Nullable - will be null if no bids were placed
+      BigDecimal startingPrice,  // Original starting price (for cache metadata)
+      BigDecimal finalPrice,     // Final price (could equal startingPrice if no bids)
+      UUID winnerId              // Nullable - will be null if no bids were placed
   ) {
   }
 }

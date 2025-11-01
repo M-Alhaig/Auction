@@ -195,11 +195,12 @@ public class AuctionEventListener {
     // Mark auction as ended in dedicated ended-flag cache
     auctionCacheService.markAuctionEnded(event.data().itemId(), event.data().endTime());
 
-    // Also update metadata cache status to ENDED
-    auctionCacheService.cacheAuctionMetadata(event.data().itemId(), event.data().finalPrice(),
-        event.data().endTime(), ItemStatus.ENDED);
-    log.info("Marked auction as ended - itemId: {}, finalPrice: {}, status: ENDED",
-        event.data().itemId(), event.data().finalPrice());
+    // Update metadata cache status to ENDED with startingPrice from event (self-contained event)
+    auctionCacheService.cacheAuctionMetadata(event.data().itemId(),
+        event.data().startingPrice(), event.data().endTime(), ItemStatus.ENDED);
+
+    log.info("Marked auction as ended - itemId: {}, startingPrice: {}, finalPrice: {}, status: ENDED",
+        event.data().itemId(), event.data().startingPrice(), event.data().finalPrice());
   }
 
   /**
