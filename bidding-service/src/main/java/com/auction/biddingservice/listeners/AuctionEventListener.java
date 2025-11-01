@@ -1,16 +1,13 @@
 package com.auction.biddingservice.listeners;
 
-import com.auction.biddingservice.client.ItemServiceClient;
 import com.auction.events.AuctionEndedEvent;
 import com.auction.events.AuctionStartedEvent;
 import com.auction.events.AuctionTimesUpdatedEvent;
 import com.auction.biddingservice.exceptions.ConcurrentEventProcessingException;
 import com.auction.biddingservice.models.ItemStatus;
 import com.auction.biddingservice.services.AuctionCacheService;
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.Collections;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitHandler;
@@ -59,7 +56,6 @@ public class AuctionEventListener {
 
   private final AuctionCacheService auctionCacheService;
   private final RedisTemplate<String, String> redisTemplate;
-  private final ItemServiceClient itemServiceClient;
 
   private static final Duration LOCK_TIMEOUT = Duration.ofHours(1);
   private static final String LOCK_KEY_PREFIX = "event:state:";
@@ -199,15 +195,12 @@ public class AuctionEventListener {
     // Mark auction as ended in dedicated ended-flag cache
     auctionCacheService.markAuctionEnded(event.data().itemId(), event.data().endTime());
 
-    // Update metadata cache status to ENDED, preserving original startingPrice if cached
-    BigDecimal startingPrice = Optional.ofNullable(
-            auctionCacheService.getStartingPrice(event.data().itemId()))
-        .orElse(itemServiceClient.getItem(event.data().itemId()).startingPrice()); // fallback only if unknown
-    auctionCacheService.cacheAuctionMetadata(event.data().itemId(), startingPrice,
-        event.data().endTime(), ItemStatus.ENDED);
+    // Update metadata cache status to ENDED with startingPrice from event (self-contained event)
+    auctionCacheService.cacheAuctionMetadata(event.data().itemId(),
+        event.data().startingPrice(), event.data().endTime(), ItemStatus.ENDED);
 
-    log.info("Marked auction as ended - itemId: {}, finalPrice: {}, status: ENDED",
-        event.data().itemId(), event.data().finalPrice());
+    log.info("Marked auction as ended - itemId: {}, startingPrice: {}, finalPrice: {}, status: ENDED",
+        event.data().itemId(), event.data().startingPrice(), event.data().finalPrice());
   }
 
   /**
