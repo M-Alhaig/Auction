@@ -58,11 +58,11 @@ public class Item {
   private Instant endTime;
 
   @CreationTimestamp
-  @Column(name = "created_at", nullable = false, columnDefinition = "TIMESTAMPTZ")
+  @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "TIMESTAMPTZ")
   private Instant createdAt;
 
   @UpdateTimestamp
-  @Column(name = "updated_at", nullable = false, columnDefinition = "TIMESTAMPTZ")
+  @Column(name = "updated_at", nullable = false, updatable = false, columnDefinition = "TIMESTAMPTZ")
   private Instant updatedAt;
 
   @ToString.Exclude
