@@ -37,22 +37,24 @@ import org.springframework.stereotype.Repository;
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
 
   /**
-   * Find all notifications for a user, ordered by creation time descending.
+   * Find all notifications for a user.
+   * Sort order is determined by the Pageable parameter (default: createdAt DESC via controller).
    *
    * @param userId   the user's UUID
-   * @param pageable pagination parameters
-   * @return paginated notifications, newest first
+   * @param pageable pagination and sorting parameters
+   * @return paginated notifications
    */
-  Page<Notification> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
+  Page<Notification> findByUserId(UUID userId, Pageable pageable);
 
   /**
-   * Find unread notifications for a user, ordered by creation time descending.
+   * Find unread notifications for a user.
+   * Sort order is determined by the Pageable parameter (default: createdAt DESC via controller).
    *
    * @param userId   the user's UUID
-   * @param pageable pagination parameters
-   * @return paginated unread notifications, newest first
+   * @param pageable pagination and sorting parameters
+   * @return paginated unread notifications
    */
-  Page<Notification> findByUserIdAndReadFalseOrderByCreatedAtDesc(UUID userId, Pageable pageable);
+  Page<Notification> findByUserIdAndReadFalse(UUID userId, Pageable pageable);
 
   /**
    * Count unread notifications for a user.

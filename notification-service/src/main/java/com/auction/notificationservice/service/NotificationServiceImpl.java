@@ -60,7 +60,7 @@ public class NotificationServiceImpl implements NotificationService {
         userId, pageable.getPageNumber(), pageable.getPageSize());
 
     return notificationRepository
-        .findByUserIdOrderByCreatedAtDesc(userId, pageable)
+        .findByUserId(userId, pageable)
         .map(notificationMapper::toResponse);
   }
 
@@ -75,7 +75,7 @@ public class NotificationServiceImpl implements NotificationService {
         userId, pageable.getPageNumber(), pageable.getPageSize());
 
     return notificationRepository
-        .findByUserIdAndReadFalseOrderByCreatedAtDesc(userId, pageable)
+        .findByUserIdAndReadFalse(userId, pageable)
         .map(notificationMapper::toResponse);
   }
 
