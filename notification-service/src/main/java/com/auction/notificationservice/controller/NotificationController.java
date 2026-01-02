@@ -138,7 +138,8 @@ public class NotificationController {
     UUID userId = UUID.fromString(authId);
     log.debug("PUT /api/notifications/read-all - userId: {}", userId);
 
-    notificationService.markAllAsRead(userId);
+    int countMarked = notificationService.markAllAsRead(userId);
+    log.info("Notifications marked as read - countMarked: {}, userId: {}", countMarked, userId);
     return ResponseEntity.ok().build();
   }
 }
