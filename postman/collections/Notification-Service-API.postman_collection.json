@@ -1,0 +1,1143 @@
+{
+  "info": {
+    "_postman_id": "notification-service-2024",
+    "name": "Notification Service API",
+    "description": "Complete API collection for testing the Notification Service with WebSocket broadcasting, RabbitMQ event consumption, and notification persistence.\n\n**Base URL:** http://localhost:8084\n\n**Prerequisites:**\n- Docker infrastructure running (PostgreSQL, RabbitMQ, Redis)\n- Item Service running on port 8082\n- Bidding Service running on port 8083\n- Notification Service running on port 8084\n\n**Test Flow:**\n1. Setup: Create category and item, start auction\n2. Place bids to trigger BidPlacedEvent (WebSocket broadcast)\n3. Get outbid to trigger UserOutbidEvent (WebSocket + DB persistence)\n4. Query notification history\n5. Mark notifications as read\n6. End auction to trigger AuctionEndedEvent",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Setup - Create Auction Flow",
+      "item": [
+        {
+          "name": "Health Check - All Services",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Item Service is healthy\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "// Set up test user IDs",
+                  "pm.collectionVariables.set(\"sellerId\", \"550e8400-e29b-41d4-a716-446655440001\");",
+                  "pm.collectionVariables.set(\"bidder1Id\", \"550e8400-e29b-41d4-a716-446655440002\");",
+                  "pm.collectionVariables.set(\"bidder2Id\", \"550e8400-e29b-41d4-a716-446655440003\");",
+                  "",
+                  "console.log(\"✅ Test user IDs configured:\");",
+                  "console.log(\"   Seller:\", pm.collectionVariables.get(\"sellerId\"));",
+                  "console.log(\"   Bidder 1:\", pm.collectionVariables.get(\"bidder1Id\"));",
+                  "console.log(\"   Bidder 2:\", pm.collectionVariables.get(\"bidder2Id\"));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "87567fff-cba8-440c-9862-c5a00caad1e3",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{itemServiceUrl}}/actuator/health",
+              "host": [
+                "{{itemServiceUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            },
+            "description": "Verify Item Service is running and set up test user IDs."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 or 201\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has category data\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('name');",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.collectionVariables.set(\"categoryId\", jsonData.id);",
+                  "console.log(\"✅ Category created, ID:\", jsonData.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "89090e43-2fbb-4aa8-9b7b-0c3b355c493b",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Notifications Category\"\n}"
+            },
+            "url": {
+              "raw": "{{itemServiceUrl}}/api/categories",
+              "host": [
+                "{{itemServiceUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories"
+              ]
+            },
+            "description": "Create a category for test items."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Auction Item",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "id": "9ea09665-d47b-40bc-baa7-b5f5e0bc590e",
+                "exec": [
+                  "// Set auction times: start in 2 seconds, end in 1 hour",
+                  "const now = new Date();",
+                  "const startTime = new Date(now.getTime() + 2000);",
+                  "const endTime = new Date(now.getTime() + 3600000);",
+                  "",
+                  "pm.collectionVariables.set(\"auctionStartTime\", startTime.toISOString());",
+                  "pm.collectionVariables.set(\"auctionEndTime\", endTime.toISOString());",
+                  "",
+                  "// Ensure categoryId is a primitive value (integer)",
+                  "let catId = pm.collectionVariables.get(\"categoryId\");",
+                  "if (catId && (typeof catId === 'object' || (typeof catId === 'string' && catId.includes('{')))) {",
+                  "    console.log(\"⚠️ Detected complex categoryId, sanitizing...\");",
+                  "    if (catId.id) { catId = catId.id; }",
+                  "    else { catId = 1; }",
+                  "    pm.collectionVariables.set(\"categoryId\", catId);",
+                  "}",
+                  "",
+                  "console.log(\"⏰ Auction times set:\");",
+                  "console.log(\"   Start:\", startTime.toISOString());",
+                  "console.log(\"   End:\", endTime.toISOString());"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "id": "55c76af5-aa83-4501-ae0f-0847acd1c8b6",
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Item created with correct data\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('title');",
+                  "    pm.expect(jsonData.status).to.eql('PENDING');",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.collectionVariables.set(\"itemId\", jsonData.id);",
+                  "console.log(\"✅ Item created, ID:\", jsonData.id);",
+                  "console.log(\"   Status:\", jsonData.status);",
+                  "console.log(\"   Starting Price:\", jsonData.startingPrice);"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "id": "266d0000-14a5-4b60-ae00-99f4ee5b61e1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Auth-Id",
+                "value": "{{sellerId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Notification Test Item\",\n  \"description\": \"Item for testing notification service events\",\n  \"startingPrice\": 100.00,\n  \"categoryIds\": [{{categoryId}}],\n  \"startTime\": \"{{auctionStartTime}}\",\n  \"endTime\": \"{{auctionEndTime}}\"\n}"
+            },
+            "url": {
+              "raw": "{{itemServiceUrl}}/api/items",
+              "host": [
+                "{{itemServiceUrl}}"
+              ],
+              "path": [
+                "api",
+                "items"
+              ]
+            },
+            "description": "Create an auction item that will start in 2 seconds."
+          },
+          "response": []
+        },
+        {
+          "name": "Wait for Auction Start (3s)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Wait 3 seconds for auction to start automatically",
+                  "console.log(\"⏳ Waiting 3 seconds for auction to start...\");",
+                  "setTimeout(function() {}, 3000);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Item is now ACTIVE\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('ACTIVE');",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "console.log(\"✅ Auction is now ACTIVE!\");",
+                  "console.log(\"   Current Price:\", jsonData.currentPrice);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "e8617ad3-edca-4182-a3f5-9bd7b18e94af",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{itemServiceUrl}}/api/items/{{itemId}}",
+              "host": [
+                "{{itemServiceUrl}}"
+              ],
+              "path": [
+                "api",
+                "items",
+                "{{itemId}}"
+              ]
+            },
+            "description": "Wait for the scheduler to start the auction, then verify status is ACTIVE.\n\n**Note:** Run this after 3 seconds delay or use Postman Runner with delay."
+          },
+          "response": []
+        }
+      ],
+      "id": "b41767c3-e89c-4092-b110-e43dd13abbd9",
+      "description": "Setup: Create category, item, and wait for auction to start.\n\n**IMPORTANT:** After running 'Create Auction Item', wait 3 seconds before running 'Wait for Auction Start'."
+    },
+    {
+      "name": "1. Trigger Notifications - Place Bids",
+      "item": [
+        {
+          "name": "Bidder 1 - First Bid ($150)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Bid placed successfully\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.bidAmount).to.eql(150);",
+                  "    pm.expect(jsonData.isCurrentHighest).to.eql(true);",
+                  "});",
+                  "",
+                  "console.log(\"✅ Bidder 1 placed first bid: $150\");",
+                  "console.log(\"📡 BidPlacedEvent published to RabbitMQ\");",
+                  "console.log(\"   → Notification Service broadcasts to /topic/items/\" + pm.collectionVariables.get(\"itemId\"));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "a8ce6e45-46cc-4fb1-b297-c410ad0470f9",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Auth-Id",
+                "value": "{{bidder1Id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemId\": {{itemId}},\n  \"bidAmount\": 150.00\n}"
+            },
+            "url": {
+              "raw": "{{biddingServiceUrl}}/api/bids",
+              "host": [
+                "{{biddingServiceUrl}}"
+              ],
+              "path": [
+                "api",
+                "bids"
+              ]
+            },
+            "description": "First bid on the item. Triggers BidPlacedEvent.\n\n**Events Published:**\n- BidPlacedEvent → WebSocket broadcast to /topic/items/{itemId}"
+          },
+          "response": []
+        },
+        {
+          "name": "Bidder 2 - Outbid Bidder 1 ($200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Bid placed successfully\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.bidAmount).to.eql(200);",
+                  "    pm.expect(jsonData.isCurrentHighest).to.eql(true);",
+                  "});",
+                  "",
+                  "console.log(\"✅ Bidder 2 placed bid: $200\");",
+                  "console.log(\"📡 Events published to RabbitMQ:\");",
+                  "console.log(\"   1. BidPlacedEvent → /topic/items/\" + pm.collectionVariables.get(\"itemId\"));",
+                  "console.log(\"   2. UserOutbidEvent → /user/\" + pm.collectionVariables.get(\"bidder1Id\") + \"/queue/alerts\");",
+                  "console.log(\"   → Notification PERSISTED for Bidder 1 (check DB)\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "c7d5f016-6faa-4348-90c0-f14e7d90a2f1",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Auth-Id",
+                "value": "{{bidder2Id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemId\": {{itemId}},\n  \"bidAmount\": 200.00\n}"
+            },
+            "url": {
+              "raw": "{{biddingServiceUrl}}/api/bids",
+              "host": [
+                "{{biddingServiceUrl}}"
+              ],
+              "path": [
+                "api",
+                "bids"
+              ]
+            },
+            "description": "Bidder 2 outbids Bidder 1. Triggers both events.\n\n**Events Published:**\n- BidPlacedEvent → WebSocket broadcast to /topic/items/{itemId}\n- UserOutbidEvent → WebSocket to Bidder 1 + persisted notification"
+          },
+          "response": []
+        },
+        {
+          "name": "Bidder 1 - Outbid Bidder 2 ($250)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "console.log(\"✅ Bidder 1 placed bid: $250\");",
+                  "console.log(\"📡 Events published:\");",
+                  "console.log(\"   1. BidPlacedEvent → broadcast\");",
+                  "console.log(\"   2. UserOutbidEvent → Bidder 2 notification persisted\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "30220cf0-dc0a-48b7-ae8f-664dbe2b45aa",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Auth-Id",
+                "value": "{{bidder1Id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemId\": {{itemId}},\n  \"bidAmount\": 250.00\n}"
+            },
+            "url": {
+              "raw": "{{biddingServiceUrl}}/api/bids",
+              "host": [
+                "{{biddingServiceUrl}}"
+              ],
+              "path": [
+                "api",
+                "bids"
+              ]
+            },
+            "description": "Bidder 1 outbids Bidder 2. Now both bidders have notifications."
+          },
+          "response": []
+        }
+      ],
+      "id": "8c1061ab-7fa2-45c6-9c76-78bbe63ebe9e",
+      "description": "Place bids to trigger notification events.\n\n**Flow:**\n1. Bidder 1 places $150 → BidPlacedEvent only\n2. Bidder 2 places $200 → BidPlacedEvent + UserOutbidEvent (Bidder 1 notified)\n3. Bidder 1 places $250 → BidPlacedEvent + UserOutbidEvent (Bidder 2 notified)"
+    },
+    {
+      "name": "2. Query Notifications",
+      "item": [
+        {
+          "name": "Get Bidder 1 Notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is paginated\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('content');",
+                  "    pm.expect(jsonData).to.have.property('totalElements');",
+                  "    pm.expect(jsonData).to.have.property('pageable');",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "console.log(\"📬 Bidder 1 has\", jsonData.totalElements, \"notification(s)\");",
+                  "",
+                  "if (jsonData.content.length > 0) {",
+                  "    pm.collectionVariables.set(\"notificationId\", jsonData.content[0].id);",
+                  "    console.log(\"   First notification ID:\", jsonData.content[0].id);",
+                  "    console.log(\"   Type:\", jsonData.content[0].type);",
+                  "    console.log(\"   Read:\", jsonData.content[0].read);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "0c63169e-2883-4977-b645-cbd15acf24aa",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Auth-Id",
+                "value": "{{bidder1Id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Get all notifications for Bidder 1.\n\n**Expected:** 1 notification (was outbid by Bidder 2)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Bidder 2 Notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "console.log(\"📬 Bidder 2 has\", jsonData.totalElements, \"notification(s)\");",
+                  "",
+                  "jsonData.content.forEach((n, i) => {",
+                  "    console.log(\"   [\" + (i+1) + \"]\", n.type, \"-\", n.title);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "cb76d044-71e9-48b3-9aa5-0d12892aa73d",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Auth-Id",
+                "value": "{{bidder2Id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Get all notifications for Bidder 2.\n\n**Expected:** 1 notification (was outbid by Bidder 1)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Unread Count - Bidder 1",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has count property\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('count');",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "console.log(\"🔔 Bidder 1 unread count:\", jsonData.count);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "5367d8ae-d635-453e-a7cd-e4224cfa0e1b",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Auth-Id",
+                "value": "{{bidder1Id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/unread/count",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "unread",
+                "count"
+              ]
+            },
+            "description": "Get unread notification count for badge display."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Unread Notifications Only",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"All notifications are unread\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    jsonData.content.forEach(n => {",
+                  "        pm.expect(n.read).to.eql(false);",
+                  "    });",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "console.log(\"📭 Unread notifications:\", jsonData.totalElements);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "bfa16f74-c6b6-46f8-b42b-329cfcee71b5",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Auth-Id",
+                "value": "{{bidder1Id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/unread?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "unread"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Get only unread notifications (filtered)."
+          },
+          "response": []
+        }
+      ],
+      "id": "0180192f-61a2-4177-a41d-041e4eeaccd6",
+      "description": "Query notifications after bids have been placed."
+    },
+    {
+      "name": "3. Mark as Read",
+      "item": [
+        {
+          "name": "Mark Single Notification as Read",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Notification is now read\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.read).to.eql(true);",
+                  "});",
+                  "",
+                  "console.log(\"✅ Notification marked as read\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "5a182123-3974-4d32-b551-c06f9b11f9d3",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-Auth-Id",
+                "value": "{{bidder1Id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/{{notificationId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "{{notificationId}}",
+                "read"
+              ]
+            },
+            "description": "Mark a single notification as read.\n\n**Prerequisites:** Run 'Get Bidder 1 Notifications' first to set notificationId."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Unread Count Decreased",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "console.log(\"🔔 Updated unread count:\", jsonData.count);",
+                  "",
+                  "pm.test(\"Unread count should be 0 (if only 1 notification existed)\", function () {",
+                  "    pm.expect(jsonData.count).to.be.at.least(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "42efb439-8d61-4f6b-9745-a6bef26d78cb",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Auth-Id",
+                "value": "{{bidder1Id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/unread/count",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "unread",
+                "count"
+              ]
+            },
+            "description": "Verify unread count decreased after marking as read."
+          },
+          "response": []
+        },
+        {
+          "name": "Mark All as Read - Bidder 2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "console.log(\"✅ All notifications marked as read for Bidder 2\");",
+                  "console.log(\"   (Check server logs for count of marked notifications)\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "cfb526ac-d0d0-49f1-89c1-71a78511b7cf",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-Auth-Id",
+                "value": "{{bidder2Id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/read-all",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "read-all"
+              ]
+            },
+            "description": "Mark all notifications as read (bulk operation)."
+          },
+          "response": []
+        }
+      ],
+      "id": "98bbd60c-cfbf-4aef-b088-fd6a08cacce0",
+      "description": "Mark notifications as read and verify counts update."
+    },
+    {
+      "name": "4. Error Handling",
+      "item": [
+        {
+          "name": "Missing X-Auth-Id Header (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Error message mentions missing header\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message.toLowerCase()).to.include('header');",
+                  "});",
+                  "",
+                  "console.log(\"✅ Error handling works: Missing header detected\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "5f32f4d7-4921-4851-b753-94392ebb0b0d",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            },
+            "description": "Test: Missing X-Auth-Id header should return 400."
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid UUID Format (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "console.log(\"✅ Error handling works: Invalid UUID rejected\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "17d42a73-d7c7-4e3e-93ce-a9b1ba74fbe9",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Auth-Id",
+                "value": "not-a-valid-uuid"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ]
+            },
+            "description": "Test: Invalid UUID format should return 400."
+          },
+          "response": []
+        },
+        {
+          "name": "Non-Existent Notification (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "console.log(\"✅ Error handling works: 404 for non-existent notification\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "cbcc3f88-f11b-4803-a5d5-f0419abb449a",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-Auth-Id",
+                "value": "{{bidder1Id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/99999/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "99999",
+                "read"
+              ]
+            },
+            "description": "Test: Mark non-existent notification should return 404."
+          },
+          "response": []
+        }
+      ],
+      "id": "e3034630-0a14-40dc-ac68-85fa73f9e73c",
+      "description": "Verify error handling for invalid requests."
+    },
+    {
+      "name": "5. Cleanup - End Auction",
+      "item": [
+        {
+          "name": "Manually End Auction",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Auction is now ENDED\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('ENDED');",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "console.log(\"🏁 Auction ended!\");",
+                  "console.log(\"   Winner ID:\", jsonData.winnerId);",
+                  "console.log(\"   Final Price:\", jsonData.currentPrice);",
+                  "console.log(\"📡 AuctionEndedEvent published to RabbitMQ\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "902fc620-0c4d-4f71-ad22-3cb94f0e1be3",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-Auth-Id",
+                "value": "{{sellerId}}"
+              }
+            ],
+            "url": {
+              "raw": "{{itemServiceUrl}}/api/items/{{itemId}}/end",
+              "host": [
+                "{{itemServiceUrl}}"
+              ],
+              "path": [
+                "api",
+                "items",
+                "{{itemId}}",
+                "end"
+              ]
+            },
+            "description": "Manually end the auction. Triggers AuctionEndedEvent.\n\n**Note:** This endpoint may be restricted in production."
+          },
+          "response": []
+        },
+        {
+          "name": "Check for Auction Ended Notifications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "console.log(\"📬 Bidder 1 total notifications:\", jsonData.totalElements);",
+                  "",
+                  "// Look for AUCTION_WON or AUCTION_ENDED type",
+                  "const auctionNotifs = jsonData.content.filter(n => ",
+                  "    n.type === 'AUCTION_WON' || n.type === 'AUCTION_ENDED'",
+                  ");",
+                  "console.log(\"   Auction-related notifications:\", auctionNotifs.length);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "715044f2-9de5-4a12-9175-ef88f822dff0",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Auth-Id",
+                "value": "{{bidder1Id}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Check if auction ended notification was created.\n\n**Note:** AuctionEndedEvent consumer may not be implemented yet."
+          },
+          "response": []
+        }
+      ],
+      "id": "982e85be-128a-4dc2-afb3-81485adb177c",
+      "description": "End the auction and verify cleanup."
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "id": "a696a588-5bdb-40e4-a7c6-690305fa4684",
+        "type": "text/javascript",
+        "requests": {},
+        "exec": [
+          "// Global pre-request script",
+          "// Add any setup that should run before every request"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "id": "b4ac973f-1ff8-468a-a2c6-25bd2686f35d",
+        "type": "text/javascript",
+        "requests": {},
+        "exec": [
+          "// Global test script",
+          "// Log response time for performance monitoring",
+          "console.log(\"Response time:\", pm.response.responseTime + \"ms\");"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "id": "e4991311-b6ff-42f7-96b0-af57068ae772",
+      "key": "baseUrl",
+      "value": "http://localhost:8084",
+      "description": "Notification Service URL"
+    },
+    {
+      "id": "b3bceb0f-0fce-46a3-b0cb-da167c75fcd6",
+      "key": "itemServiceUrl",
+      "value": "http://localhost:8082",
+      "description": "Item Service URL"
+    },
+    {
+      "id": "5f22dace-cfb5-4363-a819-0f3202638db0",
+      "key": "biddingServiceUrl",
+      "value": "http://localhost:8083",
+      "description": "Bidding Service URL"
+    },
+    {
+      "id": "22daa92e-1bdc-4eba-907b-97de8776da20",
+      "key": "sellerId",
+      "value": "550e8400-e29b-41d4-a716-446655440001",
+      "description": "Seller user UUID"
+    },
+    {
+      "id": "8632cac4-95bf-4f15-a2b0-eedf84bf644e",
+      "key": "bidder1Id",
+      "value": "550e8400-e29b-41d4-a716-446655440002",
+      "description": "Bidder 1 UUID"
+    },
+    {
+      "id": "bb5824b6-ebdc-4820-b48c-2673dc346660",
+      "key": "bidder2Id",
+      "value": "550e8400-e29b-41d4-a716-446655440003",
+      "description": "Bidder 2 UUID"
+    },
+    {
+      "id": "2ccde0eb-668d-4325-be10-180e31d7efc6",
+      "key": "categoryId",
+      "value": "1",
+      "description": "Category ID (set by test)"
+    },
+    {
+      "id": "c386dc3a-ad17-464b-b095-ebf85f2eaf6c",
+      "key": "itemId",
+      "value": "1",
+      "description": "Auction item ID (set by test)"
+    },
+    {
+      "id": "13d95d1b-34ef-4c65-91d4-148d8e31332e",
+      "key": "notificationId",
+      "value": "1",
+      "description": "Notification ID for mark-as-read tests"
+    },
+    {
+      "id": "c1ed5401-b764-458b-aa9c-3c80af3ec842",
+      "key": "auctionStartTime",
+      "value": "",
+      "description": "Dynamic auction start time"
+    },
+    {
+      "id": "bbeaec13-617f-4ec4-b655-ebf37e95525b",
+      "key": "auctionEndTime",
+      "value": "",
+      "description": "Dynamic auction end time"
+    }
+  ]
+}

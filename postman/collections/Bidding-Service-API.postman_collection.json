@@ -1,0 +1,489 @@
+{
+	"info": {
+		"_postman_id": "bidding-service-2024",
+		"name": "Bidding Service API",
+		"description": "Complete API collection for testing the Bidding Service with Redis distributed locking, pagination, and sorting.\n\n**Base URL:** http://localhost:8083\n\n**Authentication:** Uses `X-Auth-Id` header (UUID format) until JWT integration.\n\n**Test Flow:**\n1. Place bids on items (requires Item Service running)\n2. Query bid history with pagination/sorting\n3. Test concurrency with Redis locking\n4. Verify event publishing to RabbitMQ",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Place Bid",
+			"item": [
+				{
+					"name": "Place First Bid on Item",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Auth-Id",
+								"value": "{{bidderId1}}",
+								"description": "First bidder UUID"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"itemId\": {{itemId}},\n  \"bidAmount\": 150.00\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/bids",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids"]
+						},
+						"description": "Place the first bid on an auction item.\n\n**Expected:** 201 Created with bid details and `isCurrentHighest: true`\n\n**Prerequisites:** Item must exist and be ACTIVE (use Item Service to create)"
+					},
+					"response": []
+				},
+				{
+					"name": "Place Higher Bid (Different User)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Auth-Id",
+								"value": "{{bidderId2}}",
+								"description": "Second bidder UUID"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"itemId\": {{itemId}},\n  \"bidAmount\": 200.00\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/bids",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids"]
+						},
+						"description": "Place a higher bid from a different user.\n\n**Expected:** 201 Created, publishes UserOutbidEvent for previous bidder\n\n**Verify:** Check RabbitMQ management UI for events published"
+					},
+					"response": []
+				},
+				{
+					"name": "Place Lower Bid (Should Fail)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Auth-Id",
+								"value": "{{bidderId3}}",
+								"description": "Third bidder UUID"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"itemId\": {{itemId}},\n  \"bidAmount\": 100.00\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/bids",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids"]
+						},
+						"description": "Attempt to place a bid lower than current highest.\n\n**Expected:** 400 Bad Request with error message about bid amount being too low"
+					},
+					"response": []
+				},
+				{
+					"name": "Place Bid with Invalid Amount",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Auth-Id",
+								"value": "{{bidderId1}}",
+								"description": "First bidder UUID"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"itemId\": {{itemId}},\n  \"bidAmount\": -50.00\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/bids",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids"]
+						},
+						"description": "Test validation: negative bid amount.\n\n**Expected:** 400 Bad Request with validation error about minimum bid amount"
+					},
+					"response": []
+				},
+				{
+					"name": "Place Bid - Concurrent Test",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Auth-Id",
+								"value": "{{bidderId2}}",
+								"description": "Second bidder UUID"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"itemId\": {{itemId}},\n  \"bidAmount\": 250.00\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/bids",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids"]
+						},
+						"description": "**CONCURRENCY TEST:** Run this request multiple times rapidly (use Postman Runner with 10 iterations).\n\n**Expected:** All succeed with sequential amounts, Redis lock prevents race conditions\n\n**To Test:** \n1. Click 'Run' button above collection\n2. Select this request\n3. Set iterations: 10\n4. Set delay: 0ms\n5. Verify all requests either succeed or get BidLockException (409)"
+					},
+					"response": []
+				}
+			],
+			"description": "Place bids on auction items with validation and concurrency control"
+		},
+		{
+			"name": "2. Query Bid History",
+			"item": [
+				{
+					"name": "Get Bid History - Default Sort",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/bids/items/{{itemId}}?page=0&size=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids", "items", "{{itemId}}"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0",
+									"description": "Page number (0-indexed)"
+								},
+								{
+									"key": "size",
+									"value": "20",
+									"description": "Page size"
+								}
+							]
+						},
+						"description": "Get paginated bid history with default sorting (timestamp DESC - newest first).\n\n**Expected:** Page of bids with `isCurrentHighest` flag set for the winning bid"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Bid History - Sort by Amount DESC",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/bids/items/{{itemId}}?page=0&size=10&sort=bidAmount,desc",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids", "items", "{{itemId}}"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								},
+								{
+									"key": "sort",
+									"value": "bidAmount,desc",
+									"description": "Sort by bid amount (highest first)"
+								}
+							]
+						},
+						"description": "Get bids sorted by amount (highest to lowest).\n\n**Use Case:** Show \"Top Bids\" leaderboard"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Bid History - Sort by Timestamp ASC",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/bids/items/{{itemId}}?sort=timestamp,asc",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids", "items", "{{itemId}}"],
+							"query": [
+								{
+									"key": "sort",
+									"value": "timestamp,asc",
+									"description": "Sort by timestamp (oldest first)"
+								}
+							]
+						},
+						"description": "Get bids in chronological order (oldest first).\n\n**Use Case:** Show bid activity timeline"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Bid History - Page 2",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/bids/items/{{itemId}}?page=1&size=5",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids", "items", "{{itemId}}"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Second page (0-indexed, so 1 = page 2)"
+								},
+								{
+									"key": "size",
+									"value": "5",
+									"description": "Small page size for testing pagination"
+								}
+							]
+						},
+						"description": "Test pagination by requesting second page.\n\n**Prerequisites:** Item must have 6+ bids"
+					},
+					"response": []
+				}
+			],
+			"description": "Query bid history with pagination and flexible sorting"
+		},
+		{
+			"name": "3. Get Highest Bid",
+			"item": [
+				{
+					"name": "Get Highest Bid for Item",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/bids/items/{{itemId}}/highest",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids", "items", "{{itemId}}", "highest"]
+						},
+						"description": "Get the current highest bid (winning bid) for an auction.\n\n**Expected:** Single bid with `isCurrentHighest: true`"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Highest Bid - No Bids (404)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/bids/items/99999/highest",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids", "items", "99999", "highest"]
+						},
+						"description": "Test edge case: item with no bids.\n\n**Expected:** 404 Not Found"
+					},
+					"response": []
+				}
+			],
+			"description": "Get current winning bid for an auction"
+		},
+		{
+			"name": "4. User Bid History",
+			"item": [
+				{
+					"name": "Get User's All Bids - Default",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/bids/users/{{bidderId1}}?page=0&size=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids", "users", "{{bidderId1}}"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Get all bids placed by a user across all items.\n\n**Note:** All bids have `isCurrentHighest: false` for performance (no expensive checks)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User's Bids - Sort by Amount",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/bids/users/{{bidderId1}}?sort=bidAmount,desc",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids", "users", "{{bidderId1}}"],
+							"query": [
+								{
+									"key": "sort",
+									"value": "bidAmount,desc",
+									"description": "Show user's highest bids first"
+								}
+							]
+						},
+						"description": "Get user's bids sorted by amount.\n\n**Use Case:** \"My Biggest Bids\" view"
+					},
+					"response": []
+				}
+			],
+			"description": "Get bid history for a specific user across all items"
+		},
+		{
+			"name": "5. User Bids on Specific Item",
+			"item": [
+				{
+					"name": "Get User's Bids on Item",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/bids/items/{{itemId}}/users/{{bidderId1}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids", "items", "{{itemId}}", "users", "{{bidderId1}}"]
+						},
+						"description": "Get all bids placed by a specific user on a specific item.\n\n**Expected:** Bids with accurate `isCurrentHighest` flag\n\n**Use Case:** Show user their bid history on item detail page"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User's Bids on Item - Sort by Timestamp",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/bids/items/{{itemId}}/users/{{bidderId1}}?sort=timestamp,asc",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids", "items", "{{itemId}}", "users", "{{bidderId1}}"],
+							"query": [
+								{
+									"key": "sort",
+									"value": "timestamp,asc",
+									"description": "Show oldest bids first"
+								}
+							]
+						},
+						"description": "Get user's bids on item in chronological order."
+					},
+					"response": []
+				}
+			],
+			"description": "Get a user's bid history for a specific auction item"
+		},
+		{
+			"name": "6. Count Bids",
+			"item": [
+				{
+					"name": "Count Bids for Item",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/bids/items/{{itemId}}/count",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids", "items", "{{itemId}}", "count"]
+						},
+						"description": "Get total number of bids for an auction.\n\n**Expected:** Number (long)\n\n**Use Case:** Display bid activity metric without loading full history"
+					},
+					"response": []
+				},
+				{
+					"name": "Count Bids - No Bids",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/bids/items/99999/count",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids", "items", "99999", "count"]
+						},
+						"description": "Count bids for item with no bids.\n\n**Expected:** 0 (not 404, since count is an aggregate operation)"
+					},
+					"response": []
+				}
+			],
+			"description": "Count total bids for an auction item"
+		},
+		{
+			"name": "7. Get Items User Has Bid On",
+			"item": [
+				{
+					"name": "Get Items User Has Bid On",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/bids/users/{{bidderId1}}/items",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids", "users", "{{bidderId1}}", "items"]
+						},
+						"description": "Get list of all distinct item IDs that user has bid on.\n\n**Expected:** Array of item IDs (Long[])\n\n**Use Case:** \"My Active Auctions\" dashboard - combine with Item Service to get full item details"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Items User Has Bid On - No Activity",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/bids/users/00000000-0000-0000-0000-000000000000/items",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "bids", "users", "00000000-0000-0000-0000-000000000000", "items"]
+						},
+						"description": "Get items for user with no bid activity.\n\n**Expected:** Empty array []"
+					},
+					"response": []
+				}
+			],
+			"description": "Get all items a user has participated in (for 'My Active Auctions' feature)"
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8083",
+			"type": "string"
+		},
+		{
+			"key": "itemId",
+			"value": "1",
+			"type": "string",
+			"description": "Item ID from Item Service (must be ACTIVE status)"
+		},
+		{
+			"key": "bidderId1",
+			"value": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+			"type": "string",
+			"description": "First bidder UUID"
+		},
+		{
+			"key": "bidderId2",
+			"value": "b2c3d4e5-f678-90ab-cdef-123456789012",
+			"type": "string",
+			"description": "Second bidder UUID"
+		},
+		{
+			"key": "bidderId3",
+			"value": "c3d4e5f6-7890-abcd-ef12-345678901234",
+			"type": "string",
+			"description": "Third bidder UUID"
+		}
+	]
+}

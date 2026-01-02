@@ -1,0 +1,479 @@
+{
+	"info": {
+		"_postman_id": "auction-item-service",
+		"name": "Auction Platform - Item Service",
+		"description": "Complete API testing collection for Item Service\n\n**Setup:**\n1. Start Docker: `docker-compose up -d`\n2. Start Item Service: `mvn spring-boot:run`\n3. Set environment variables (see Variables tab)\n\n**Test Order:**\n1. Categories → Get All Categories\n2. Items → Create Item\n3. Items → Get Item by ID\n4. Items → Update Item\n5. Items → Get All Items (pagination)\n6. Items → Delete Item",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Categories",
+			"item": [
+				{
+					"name": "Get All Categories",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/categories",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "categories"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Category by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/categories/1",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "categories", "1"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Items - CRUD",
+			"item": [
+				{
+					"name": "Create Item",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Save the created item ID for subsequent requests",
+									"if (pm.response.code === 201) {",
+									"    const response = pm.response.json();",
+									"    pm.environment.set(\"itemId\", response.id);",
+									"    pm.environment.set(\"createdItemId\", response.id);",
+									"    console.log(\"Created item ID:\", response.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Auth-Id",
+								"value": "{{sellerId}}",
+								"description": "Temporary auth header (will be JWT in production)"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Vintage Gibson Les Paul Guitar\",\n  \"description\": \"Beautiful 1959 Gibson Les Paul in excellent condition. Sunburst finish, original hardware. A true collector's piece.\",\n  \"startingPrice\": 5000.00,\n  \"imageUrl\": \"https://example.com/images/gibson-les-paul.jpg\",\n  \"startTime\": \"2025-10-12T10:00:00\",\n  \"endTime\": \"2025-10-19T10:00:00\",\n  \"categoryIds\": [1, 5]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/items",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "items"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Item by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/items/{{itemId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "items", "{{itemId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Item (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Auth-Id",
+								"value": "{{sellerId}}",
+								"description": "Must match the seller who created the item"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Vintage Gibson Les Paul Guitar - UPDATED\",\n  \"description\": \"Updated description with more details about the finish and provenance.\",\n  \"startingPrice\": 5500.00\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/items/{{itemId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "items", "{{itemId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Item",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "X-Auth-Id",
+								"value": "{{sellerId}}",
+								"description": "Must match the seller who created the item"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/items/{{itemId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "items", "{{itemId}}"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Items - Queries",
+			"item": [
+				{
+					"name": "Get All Items",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/items?page=0&size=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "items"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Items by Status (PENDING)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/items/status/PENDING?page=0&size=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "items", "status", "PENDING"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Items by Status (ACTIVE)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/items/status/ACTIVE?page=0&size=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "items", "status", "ACTIVE"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Items by Seller",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/items/seller/{{sellerId}}?page=0&size=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "items", "seller", "{{sellerId}}"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Items by Seller and Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/items/seller/{{sellerId}}/status/PENDING?page=0&size=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "items", "seller", "{{sellerId}}", "status", "PENDING"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Active Auctions Ending Soon",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/items/active/ending-soon?page=0&size=10",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "items", "active", "ending-soon"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Items - Security Tests",
+			"item": [
+				{
+					"name": "Try to Update Someone Else's Item (Should Fail)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Auth-Id",
+								"value": "{{otherSellerId}}",
+								"description": "Different seller ID - should get 403 Forbidden"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Trying to steal this item!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/items/{{itemId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "items", "{{itemId}}"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Try to Delete Someone Else's Item (Should Fail)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "X-Auth-Id",
+								"value": "{{otherSellerId}}",
+								"description": "Different seller ID - should get 403 Forbidden"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/items/{{itemId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "items", "{{itemId}}"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Items - Validation Tests",
+			"item": [
+				{
+					"name": "Create Item with Invalid Data (Missing Title)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Auth-Id",
+								"value": "{{sellerId}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"description\": \"Missing title - should fail validation\",\n  \"startingPrice\": 100.00,\n  \"startTime\": \"2025-10-12T10:00:00\",\n  \"endTime\": \"2025-10-19T10:00:00\",\n  \"categoryIds\": [1]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/items",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "items"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Item with Invalid Price",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Auth-Id",
+								"value": "{{sellerId}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Test Item\",\n  \"description\": \"Negative price - should fail\",\n  \"startingPrice\": -10.00,\n  \"startTime\": \"2025-10-12T10:00:00\",\n  \"endTime\": \"2025-10-19T10:00:00\",\n  \"categoryIds\": [1]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/items",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "items"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Item with Invalid Date Range",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Auth-Id",
+								"value": "{{sellerId}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Test Item\",\n  \"description\": \"End time before start time - should fail\",\n  \"startingPrice\": 100.00,\n  \"startTime\": \"2025-10-19T10:00:00\",\n  \"endTime\": \"2025-10-12T10:00:00\",\n  \"categoryIds\": [1]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/items",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "items"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Item with Invalid Category IDs",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-Auth-Id",
+								"value": "{{sellerId}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Test Item\",\n  \"description\": \"Non-existent category - should fail\",\n  \"startingPrice\": 100.00,\n  \"startTime\": \"2025-10-12T10:00:00\",\n  \"endTime\": \"2025-10-19T10:00:00\",\n  \"categoryIds\": [999]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/items",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "items"]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8082",
+			"type": "string"
+		},
+		{
+			"key": "sellerId",
+			"value": "550e8400-e29b-41d4-a716-446655440000",
+			"type": "string"
+		},
+		{
+			"key": "otherSellerId",
+			"value": "550e8400-e29b-41d4-a716-446655440001",
+			"type": "string"
+		},
+		{
+			"key": "itemId",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "createdItemId",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
