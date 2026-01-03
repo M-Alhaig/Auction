@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -381,6 +382,39 @@ public class GlobalExceptionHandler {
 			message,
 			request.getRequestURI());
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
+	/**
+	 * Handle requests using an unsupported HTTP method.
+	 *
+	 * <p>Triggered when a request is made with an HTTP method not supported by the endpoint
+	 * (e.g., POST to a PATCH-only endpoint, DELETE to a GET-only endpoint).
+	 *
+	 * @param ex the HttpRequestMethodNotSupportedException describing which method was attempted
+	 * @param request the HTTP request whose URI is included in the error response
+	 * @return an ErrorResponse with HTTP status 405, error "Method Not Allowed", the supported methods,
+	 *         and the request URI
+	 */
+	@ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+	public ResponseEntity<ErrorResponse> handleMethodNotSupported(
+			HttpRequestMethodNotSupportedException ex,
+			HttpServletRequest request) {
+		String attempted = ex.getMethod();
+		String[] supported = ex.getSupportedMethods();
+		String supportedStr = supported != null ? String.join(", ", supported) : "unknown";
+		String message = String.format("Method '%s' is not supported. Supported methods: %s",
+				attempted, supportedStr);
+
+		log.warn("Method not allowed - path: {}, attempted: {}, supported: {}",
+				request.getRequestURI(), attempted, supportedStr);
+
+		ErrorResponse error = new ErrorResponse(
+				HttpStatus.METHOD_NOT_ALLOWED.value(),
+				"Method Not Allowed",
+				message,
+				request.getRequestURI()
+		);
+		return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(error);
 	}
 
 	/**
