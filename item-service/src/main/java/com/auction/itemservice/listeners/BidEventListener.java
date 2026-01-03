@@ -55,7 +55,7 @@ public class BidEventListener {
 	private final RedisTemplate<String, String> redisTemplate;
 
 	private static final Duration LOCK_TIMEOUT = Duration.ofHours(1);
-	private static final String LOCK_KEY_PREFIX = "event:state:";
+	private static final String LOCK_KEY_PREFIX = "event:state:item:";
 
 	// Event processing states (three-state idempotency machine)
 	private static final String STATE_PROCESSING = "processing";

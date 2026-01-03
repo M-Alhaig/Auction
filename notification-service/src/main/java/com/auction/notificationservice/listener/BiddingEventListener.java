@@ -47,7 +47,7 @@ public class BiddingEventListener {
   private final RedisTemplate<String, String> redisTemplate;
 
   private static final Duration STATE_TTL = Duration.ofHours(1);
-  private static final String STATE_KEY_PREFIX = "event:state:";
+  private static final String STATE_KEY_PREFIX = "event:state:notification:";
   private static final String STATE_PROCESSING = "processing";
   private static final String STATE_COMPLETED = "completed";
   private static final String STATE_FAILED = "failed";
