@@ -22,13 +22,19 @@ public enum NotificationType {
 
   /**
    * Auction has ended.
-   * Triggered by: AuctionEndedEvent from Item Service (future use).
+   * Triggered by: AuctionEndedEvent from Item Service.
+   *
+   * <p>TODO: Implement in ItemEventListener (see RabbitMQConfig for queue setup).
+   * Broadcast to all watchers: /topic/items/{itemId}
    */
   AUCTION_ENDED,
 
   /**
    * User won an auction.
-   * Triggered by: AuctionEndedEvent when user is the winner (future use).
+   * Triggered by: AuctionEndedEvent when user is the winner.
+   *
+   * <p>TODO: Implement in ItemEventListener (see RabbitMQConfig for queue setup).
+   * Send to winner: /user/{winnerId}/queue/alerts (requires User Service auth).
    */
   AUCTION_WON
 }

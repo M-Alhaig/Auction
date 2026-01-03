@@ -96,6 +96,39 @@ public class RabbitMQConfig {
         .with("bidding.*");
   }
 
+  // ===================================================================================
+  // TODO: Item Events Queue (AuctionStartedEvent, AuctionEndedEvent)
+  // ===================================================================================
+  // When implementing item event consumption, add:
+  //
+  // 1. Queue bean:
+  //    @Bean
+  //    public Queue itemEventsQueue() {
+  //      return QueueBuilder.durable("NotificationServiceItemEventsQueue")
+  //          .deadLetterExchange("")
+  //          .deadLetterRoutingKey("NotificationServiceItemEventsQueue.dlq")
+  //          .build();
+  //    }
+  //
+  // 2. DLQ bean:
+  //    @Bean
+  //    public Queue itemEventsDlq() {
+  //      return QueueBuilder.durable("NotificationServiceItemEventsQueue.dlq").build();
+  //    }
+  //
+  // 3. Binding with "item.*" pattern:
+  //    @Bean
+  //    public Binding itemEventsBinding(Queue itemEventsQueue, TopicExchange exchange) {
+  //      return BindingBuilder.bind(itemEventsQueue).to(exchange).with("item.*");
+  //    }
+  //
+  // 4. Create ItemEventListener class with handlers for:
+  //    - AuctionStartedEvent: Broadcast to /topic/items/{itemId} (optional)
+  //    - AuctionEndedEvent: Broadcast to /topic/items/{itemId} + notify winner via /user/queue/alerts
+  //
+  // See BiddingEventListener for idempotency pattern implementation.
+  // ===================================================================================
+
   /**
    * Jackson JSON message converter for event serialization/deserialization.
    */
