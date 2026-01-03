@@ -53,11 +53,29 @@ public class StompWebSocketBroadcastService implements WebSocketBroadcastService
    * <p>Internally routes to /user/{userId}/queue/alerts using Spring's
    * user destination resolution.
    *
+   * <p><strong>TODO: Requires User Service Authentication</strong>
+   * <br>Currently, {@code convertAndSendToUser} requires an authenticated Principal
+   * to map userId to a WebSocket session. Without authentication:
+   * <ul>
+   *   <li>Messages are sent but won't be delivered (no session mapping)</li>
+   *   <li>Client subscribes to /user/queue/alerts but userId isn't linked</li>
+   * </ul>
+   *
+   * <p><strong>After User Service is implemented:</strong>
+   * <ol>
+   *   <li>Add WebSocket handshake interceptor to extract JWT from connection</li>
+   *   <li>Set Principal on WebSocket session during handshake</li>
+   *   <li>Spring will automatically route /user/queue/alerts to correct session</li>
+   * </ol>
+   *
    * @param userId  the user identifier (typically UUID as string)
    * @param payload the message payload (automatically serialized to JSON)
+   * @see com.auction.notificationservice.config.WebSocketConfiguration
    */
   @Override
   public void sendToUser(String userId, Object payload) {
+    // TODO: Private notifications require WebSocket authentication (User Service dependency)
+    // Currently logs success but message won't be delivered without authenticated session
     log.debug("Sending to user - userId: {}, queue: {}", userId, USER_ALERTS_QUEUE);
     messagingTemplate.convertAndSendToUser(userId, USER_ALERTS_QUEUE, payload);
     log.info("Message sent to user - userId: {}", userId);

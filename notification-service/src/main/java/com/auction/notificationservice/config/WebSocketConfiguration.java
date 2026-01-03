@@ -1,6 +1,10 @@
 package com.auction.notificationservice.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.converter.MappingJackson2MessageConverter;
+import org.springframework.messaging.converter.MessageConverter;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
@@ -44,6 +48,12 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 public class WebSocketConfiguration implements WebSocketMessageBrokerConfigurer {
 
+  private final ObjectMapper objectMapper;
+
+  public WebSocketConfiguration(ObjectMapper objectMapper) {
+    this.objectMapper = objectMapper;
+  }
+
   /**
    * Configures the message broker for routing messages between clients.
    *
@@ -76,6 +86,14 @@ public class WebSocketConfiguration implements WebSocketMessageBrokerConfigurer 
 
     // Prefix for user-specific destinations
     registry.setUserDestinationPrefix("/user");
+  }
+
+  @Override
+  public boolean configureMessageConverters(List<MessageConverter> messageConverters) {
+    MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
+    converter.setObjectMapper(objectMapper);
+    messageConverters.add(converter);  // Use the configured converter with JavaTimeModule
+    return false;
   }
 
   /**
