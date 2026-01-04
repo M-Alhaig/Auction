@@ -1,0 +1,3745 @@
+{
+  "info": {
+    "_postman_id": "auction-integration-tests",
+    "name": "Auction Platform - Integration Testing",
+    "description": "Comprehensive integration test suite for Item Service + Bidding Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Setup & Prerequisites",
+      "item": [
+        {
+          "name": "Create Category - Electronics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 or 201\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has category data\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('name');",
+                  "    pm.expect(jsonData.name).to.eql('Electronics');",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.collectionVariables.set(\"categoryIdElectronics\", jsonData.id);",
+                  "",
+                  "console.log(\"✅ Category 'Electronics' created/retrieved, ID:\", jsonData.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "820ec259-3183-4661-b51c-5d9dead65f9a",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Electronics\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8082/api/categories",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "categories"
+              ]
+            },
+            "description": "Create Electronics category. Idempotent - returns existing if already exists."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Category - Collectibles",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 or 201\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has category data\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('name');",
+                  "    pm.expect(jsonData.name).to.eql('Collectibles');",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.collectionVariables.set(\"categoryIdCollectibles\", jsonData.id);",
+                  "",
+                  "console.log(\"✅ Category 'Collectibles' created/retrieved, ID:\", jsonData.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "69143efb-5cb5-450f-b75e-0abe734aa16f",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Collectibles\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8082/api/categories",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "categories"
+              ]
+            },
+            "description": "Create Collectibles category. Idempotent - returns existing if already exists."
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Test User IDs",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Set fixed UUIDs for test users (Postman sandbox doesn't support require('uuid'))",
+                  "pm.collectionVariables.set(\"sellerUserId\", \"550e8400-e29b-41d4-a716-446655440001\");",
+                  "pm.collectionVariables.set(\"bidderUser1Id\", \"550e8400-e29b-41d4-a716-446655440002\");",
+                  "pm.collectionVariables.set(\"bidderUser2Id\", \"550e8400-e29b-41d4-a716-446655440003\");",
+                  "pm.collectionVariables.set(\"bidderUser3Id\", \"550e8400-e29b-41d4-a716-446655440004\");",
+                  "",
+                  "console.log(\"✅ Test user IDs configured:\");",
+                  "console.log(\"   Seller:\", pm.collectionVariables.get(\"sellerUserId\"));",
+                  "console.log(\"   Bidder 1:\", pm.collectionVariables.get(\"bidderUser1Id\"));",
+                  "console.log(\"   Bidder 2:\", pm.collectionVariables.get(\"bidderUser2Id\"));",
+                  "console.log(\"   Bidder 3:\", pm.collectionVariables.get(\"bidderUser3Id\"));",
+                  "",
+                  "pm.test(\"Health check passed\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"User IDs configured\", function () {",
+                  "    pm.expect(pm.collectionVariables.get(\"sellerUserId\")).to.not.be.undefined;",
+                  "    pm.expect(pm.collectionVariables.get(\"bidderUser1Id\")).to.not.be.undefined;",
+                  "    pm.expect(pm.collectionVariables.get(\"bidderUser2Id\")).to.not.be.undefined;",
+                  "    pm.expect(pm.collectionVariables.get(\"bidderUser3Id\")).to.not.be.undefined;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "84ab6ffc-ae61-4c5e-bcd7-dd5d4a5ce08d",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8082/actuator/health",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "actuator",
+                "health"
+              ]
+            },
+            "description": "Health check endpoint to verify Item Service is running. Also sets up test user IDs."
+          },
+          "response": []
+        }
+      ],
+      "id": "9b3d391f-3e20-4454-98d4-c943f61d875d",
+      "description": "Run this folder ONCE at the start to:\n1. Create test categories (idempotent)\n2. Set up test user UUIDs for all tests"
+    },
+    {
+      "name": "1. Happy Path - Complete Auction Flow",
+      "item": [
+        {
+          "name": "Step 1: Create Auction Item",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Set auction times: start in 5 seconds, end in 1 hour",
+                  "const now = new Date();",
+                  "const startTime = new Date(now.getTime() + 5000);",
+                  "const endTime = new Date(now.getTime() + 3600000);",
+                  "",
+                  "pm.collectionVariables.set(\"testStartTime\", startTime.toISOString());",
+                  "pm.collectionVariables.set(\"testEndTime\", endTime.toISOString());"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Item created with PENDING status\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('status');",
+                  "    pm.expect(jsonData.status).to.eql('PENDING');",
+                  "    pm.expect(jsonData.startingPrice).to.eql(100.00);",
+                  "    pm.expect(jsonData.currentPrice).to.eql(100.00);",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.collectionVariables.set(\"testItemId\", jsonData.id);",
+                  "",
+                  "// Verify variable was set",
+                  "const setItemId = pm.collectionVariables.get(\"testItemId\");",
+                  "pm.expect(setItemId).to.eql(jsonData.id);",
+                  "",
+                  "console.log(\"✅ Created auction item:\", jsonData.id);",
+                  "console.log(\"   Title:\", jsonData.title);",
+                  "console.log(\"   Starting Price: $\", jsonData.startingPrice);",
+                  "console.log(\"   Status:\", jsonData.status);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "6c04c1fd-0e48-490c-b923-daf77b0139e6",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Auth-Id",
+                "value": "{{sellerUserId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Vintage Camera\",\n  \"description\": \"Rare 1960s film camera in excellent condition\",\n  \"startingPrice\": 100.00,\n  \"startTime\": \"{{testStartTime}}\",\n  \"endTime\": \"{{testEndTime}}\",\n  \"categoryIds\": [{{categoryIdElectronics}}]\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8082/api/items",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "items"
+              ]
+            },
+            "description": "Create a new auction item in PENDING status"
+          },
+          "response": []
+        },
+        {
+          "name": "Step 2: Verify Item Created",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Item details match\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.id).to.eql(pm.collectionVariables.get(\"testItemId\"));",
+                  "    pm.expect(jsonData.title).to.eql(\"Vintage Camera\");",
+                  "    pm.expect(jsonData.status).to.eql(\"PENDING\");",
+                  "});",
+                  "",
+                  "console.log(\"✅ Item verified in database\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "eda0508e-17df-4e24-8b6a-149ee431a963",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8082/api/items/{{testItemId}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "items",
+                "{{testItemId}}"
+              ]
+            },
+            "description": "Retrieve the created item to verify it exists"
+          },
+          "response": []
+        },
+        {
+          "name": "Step 3: Start Auction",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Item status is ACTIVE\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql(\"ACTIVE\");",
+                  "});",
+                  "",
+                  "console.log(\"✅ Auction started - Status: ACTIVE\");",
+                  "console.log(\"   📨 AuctionStartedEvent published to RabbitMQ\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "2802b817-6ced-4ba2-aa0c-742ddf871a9e",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-Auth-Id",
+                "value": "{{sellerUserId}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8082/api/items/{{testItemId}}/start",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "items",
+                "{{testItemId}}",
+                "start"
+              ]
+            },
+            "description": "Manually start the auction (transition PENDING → ACTIVE)"
+          },
+          "response": []
+        },
+        {
+          "name": "Step 4: Place First Bid ($150)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Bid details correct\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData.bidAmount).to.eql(150.00);",
+                  "    pm.expect(jsonData.bidderId).to.eql(pm.collectionVariables.get(\"bidderUser1Id\"));",
+                  "    pm.expect(jsonData.itemId).to.eql(parseInt(pm.collectionVariables.get(\"testItemId\")));",
+                  "    pm.expect(jsonData.isCurrentHighest).to.be.true;",
+                  "});",
+                  "",
+                  "const jsonData = pm.response.json();",
+                  "pm.collectionVariables.set(\"firstBidId\", jsonData.id);",
+                  "",
+                  "console.log(\"✅ First bid placed: $150\");",
+                  "console.log(\"   Bid ID:\", jsonData.id);",
+                  "console.log(\"   📨 BidPlacedEvent published to RabbitMQ\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "180d90f8-54e4-44ce-a4e0-5c4b3b992ef4",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Auth-Id",
+                "value": "{{bidderUser1Id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemId\": {{testItemId}},\n  \"bidAmount\": 150.00\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8083/api/bids",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "api",
+                "bids"
+              ]
+            },
+            "description": "Place first bid on the auction"
+          },
+          "response": []
+        },
+        {
+          "name": "Step 5: Place Second Bid ($200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Second bid accepted\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.bidAmount).to.eql(200.00);",
+                  "    pm.expect(jsonData.bidderId).to.eql(pm.collectionVariables.get(\"bidderUser2Id\"));",
+                  "    pm.expect(jsonData.isCurrentHighest).to.be.true;",
+                  "});",
+                  "",
+                  "console.log(\"✅ Second bid placed: $200 (User1 outbid)\");",
+                  "console.log(\"   📨 BidPlacedEvent published\");",
+                  "console.log(\"   📨 UserOutbidEvent published for User1\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "d1aa10c6-9493-4471-be30-0212ae23ea87",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Auth-Id",
+                "value": "{{bidderUser2Id}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"itemId\": {{testItemId}},\n  \"bidAmount\": 200.00\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8083/api/bids",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "api",
+                "bids"
+              ]
+            },
+            "description": "Place higher bid (outbids User1)"
+          },
+          "response": []
+        },
+        {
+          "name": "Step 6: Get Bid History",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Bid history contains 2 bids\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.content).to.be.an('array').with.lengthOf(2);",
+                  "});",
+                  "",
+                  "pm.test(\"Bids sorted by timestamp descending\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    const bids = jsonData.content;",
+                  "    pm.expect(bids[0].bidAmount).to.eql(200.00);",
+                  "    pm.expect(bids[1].bidAmount).to.eql(150.00);",
+                  "});",
+                  "",
+                  "console.log(\"✅ Bid history retrieved - 2 bids found\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "e1a317e0-f50f-4366-9a25-71e56580712e",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8083/api/bids/items/{{testItemId}}?sort=timestamp,desc",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "api",
+                "bids",
+                "items",
+                "{{testItemId}}"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "timestamp,desc"
+                }
+              ]
+            },
+            "description": "Get all bids for the item, sorted by timestamp descending"
+          },
+          "response": []
+        },
+        {
+          "name": "Step 7: Get Highest Bid",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Highest bid is $200 from User2\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.bidAmount).to.eql(200.00);",
+                  "    pm.expect(jsonData.bidderId).to.eql(pm.collectionVariables.get(\"bidderUser2Id\"));",
+                  "    pm.expect(jsonData.isCurrentHighest).to.be.true;",
+                  "});",
+                  "",
+                  "console.log(\"✅ Highest bid verified: $200\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "3034e33d-e410-4035-af8e-3b55371dcd8f",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8083/api/bids/items/{{testItemId}}/highest",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8083",
+              "path": [
+                "api",
+                "bids",
+                "items",
+                "{{testItemId}}",
+                "highest"
+              ]
+            },
+            "description": "Get the current highest bid for the item"
+          },
+          "response": []
+        },
+        {
+          "name": "Step 8: End Auction",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Item status is ENDED\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql(\"ENDED\");",
+                  "    pm.expect(jsonData.currentPrice).to.eql(200.00);",
+                  "});",
+                  "",
+                  "console.log(\"✅ Auction ended successfully\");",
+                  "console.log(\"   📨 AuctionEndedEvent published to RabbitMQ\");",
+                  "console.log(\"   Final Price: $200\");",
+                  "console.log(\"\\n🎉 Happy Path Test Complete!\");"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "2ca64cda-a279-488f-98a4-65c843b34327",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "X-Auth-Id",
+                "value": "{{sellerUserId}}"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8082/api/items/{{testItemId}}/end",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "items",
+                "{{testItemId}}",
+                "end"
+              ]
+            },
+            "description": "Manually end the auction (transition ACTIVE → ENDED)"
+          },
+          "response": []
+        }
+      ],
+      "id": "e2c93523-05cf-40d1-91c5-155bec41a847",
+      "description": "Complete auction flow: create → start → bid → bid → verify → end"
+    },
+    {
+      "name": "2. Error Handling & Edge Cases",
+      "item": [
+        {
+          "name": "A. Bidding Service Errors",
+          "item": [
+            {
+              "name": "Error 1: Bid on Non-Existent Item",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 404 Not Found\", function () {",
+                      "    pm.response.to.have.status(404);",
+                      "});",
+                      "",
+                      "pm.test(\"Error response structure\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData).to.have.property('status', 404);",
+                      "    pm.expect(jsonData).to.have.property('error');",
+                      "    pm.expect(jsonData).to.have.property('message');",
+                      "    pm.expect(jsonData).to.have.property('path');",
+                      "});",
+                      "",
+                      "console.log(\"✅ Correctly rejected bid on non-existent item (404)\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "80a360fa-3776-40e9-b3b9-dc0a3343ed76",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{bidderUser1Id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"itemId\": 999999,\n  \"bidAmount\": 100.00\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                },
+                "description": "Attempt to bid on item ID that doesn't exist"
+              },
+              "response": []
+            },
+            {
+              "name": "Error 2: Missing X-Auth-Id Header",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "",
+                      "pm.test(\"Error message mentions missing header\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    const msg = jsonData.message.toLowerCase();",
+                      "    pm.expect(msg).to.satisfy(function(text) {",
+                      "        return text.includes('x-auth-id') && text.includes('missing');",
+                      "    });",
+                      "});",
+                      "",
+                      "console.log(\"✅ Missing X-Auth-Id header correctly rejected\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "dfacbdb6-e937-4913-848c-866dc7dc72c5",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"itemId\": {{testItemId}},\n  \"bidAmount\": 100.00\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                },
+                "description": "Place bid without X-Auth-Id header"
+              },
+              "response": []
+            },
+            {
+              "name": "Error 3: Malformed Request - Missing itemId",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "",
+                      "pm.test(\"Validation error for itemId\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.error).to.eql('Validation Failed');",
+                      "    pm.expect(jsonData).to.have.property('fieldErrors');",
+                      "    pm.expect(jsonData.fieldErrors).to.have.property('itemId');",
+                      "});",
+                      "",
+                      "console.log(\"✅ Missing itemId field correctly rejected\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "851b03bd-9a6f-4ea2-8a70-80499c31ef80",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{bidderUser1Id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"bidAmount\": 100.00\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                },
+                "description": "Place bid without required itemId field"
+              },
+              "response": []
+            },
+            {
+              "name": "Error 4: Malformed Request - Missing bidAmount",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "",
+                      "pm.test(\"Validation error for bidAmount\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.error).to.eql('Validation Failed');",
+                      "    pm.expect(jsonData).to.have.property('fieldErrors');",
+                      "    pm.expect(jsonData.fieldErrors).to.have.property('bidAmount');",
+                      "});",
+                      "",
+                      "console.log(\"✅ Missing bidAmount field correctly rejected\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "029b711b-08b8-4b54-b3b8-eea6c029c0f3",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{bidderUser1Id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"itemId\": {{testItemId}}\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                },
+                "description": "Place bid without required bidAmount field"
+              },
+              "response": []
+            },
+            {
+              "name": "Error 5: Bid Amount Too Low",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "",
+                      "pm.test(\"Error message about bid amount\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    // Accept any message containing bid/amount/higher/current",
+                      "    const msg = jsonData.message.toLowerCase();",
+                      "    pm.expect(msg).to.satisfy(function(text) {",
+                      "        return text.includes('bid') || text.includes('amount') || text.includes('higher') || text.includes('current');",
+                      "    });",
+                      "});",
+                      "",
+                      "console.log(\"✅ Bid amount too low correctly rejected\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "c3db85fc-dcde-4e86-8b29-6e36d9136c27",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{bidderUser3Id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"itemId\": {{testItemId}},\n  \"bidAmount\": 50.00\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                },
+                "description": "Attempt bid lower than current highest (assumes item has bids of $150 and $200)"
+              },
+              "response": []
+            },
+            {
+              "name": "Error 6: Get Highest Bid - No Bids Yet",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 404 Not Found\", function () {",
+                      "    pm.response.to.have.status(404);",
+                      "});",
+                      "",
+                      "// Service may return empty body or error JSON - both are acceptable for 404",
+                      "if (pm.response.text().length > 0) {",
+                      "    try {",
+                      "        const jsonData = pm.response.json();",
+                      "        pm.test(\"Has error response\", function () {",
+                      "            pm.expect(jsonData).to.have.property('error');",
+                      "        });",
+                      "        console.log(\"   Response:\", jsonData.message || jsonData.error);",
+                      "    } catch (e) {",
+                      "        console.log(\"   Non-JSON response body\");",
+                      "    }",
+                      "} else {",
+                      "    console.log(\"   Empty response body (acceptable for 404)\");",
+                      "}",
+                      "",
+                      "console.log(\"✅ No bids found correctly returns 404\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "c46f1ea3-b716-4deb-a70a-6c3fc3d4b97c",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:8083/api/bids/items/999999/highest",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids",
+                    "items",
+                    "999999",
+                    "highest"
+                  ]
+                },
+                "description": "Get highest bid for item with no bids (non-existent item)"
+              },
+              "response": []
+            }
+          ],
+          "id": "7d2946aa-8e42-4c75-8141-2b8808f5d4ea",
+          "description": "Tests error handling in Bidding Service"
+        },
+        {
+          "name": "B. Item Service Errors",
+          "item": [
+            {
+              "name": "Error 7: Get Non-Existent Item",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 404 Not Found\", function () {",
+                      "    pm.response.to.have.status(404);",
+                      "});",
+                      "",
+                      "pm.test(\"Error response structure\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.status).to.eql(404);",
+                      "    pm.expect(jsonData.error).to.eql('Not Found');",
+                      "    pm.expect(jsonData).to.have.property('message');",
+                      "});",
+                      "",
+                      "console.log(\"✅ Non-existent item correctly returns 404\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "2892a459-7604-4f6a-bc41-42f397e70465",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:8082/api/items/999999",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items",
+                    "999999"
+                  ]
+                },
+                "description": "Attempt to retrieve item that doesn't exist"
+              },
+              "response": []
+            },
+            {
+              "name": "Error 8: Non-Existent Endpoint",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 404 Not Found\", function () {",
+                      "    pm.response.to.have.status(404);",
+                      "});",
+                      "",
+                      "pm.test(\"Error message about endpoint\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.error).to.eql('Not Found');",
+                      "    pm.expect(jsonData.message.toLowerCase()).to.include('endpoint');",
+                      "});",
+                      "",
+                      "console.log(\"✅ Non-existent endpoint correctly returns 404\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "d4a6039f-9f4e-4082-ace0-09bde5c92ec8",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:8082/api/this-endpoint-does-not-exist",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "this-endpoint-does-not-exist"
+                  ]
+                },
+                "description": "Request to endpoint that doesn't exist"
+              },
+              "response": []
+            },
+            {
+              "name": "Error 9: Create Item - Invalid Start Time (Past)",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "// Set times in the past",
+                      "const now = new Date();",
+                      "const pastStartTime = new Date(now.getTime() - 3600000);",
+                      "const pastEndTime = new Date(now.getTime() + 3600000);",
+                      "",
+                      "pm.collectionVariables.set(\"pastStartTime\", pastStartTime.toISOString());",
+                      "pm.collectionVariables.set(\"pastEndTime\", pastEndTime.toISOString());"
+                    ],
+                    "type": "text/javascript"
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "",
+                      "pm.test(\"Validation error for startTime\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.error).to.eql('Validation Failed');",
+                      "    pm.expect(jsonData).to.have.property('fieldErrors');",
+                      "    pm.expect(jsonData.fieldErrors).to.have.property('startTime');",
+                      "});",
+                      "",
+                      "console.log(\"✅ Past start time correctly rejected\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "dc7607c8-bd80-4a21-a1b0-948388160fc9",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Invalid Time Item\",\n  \"description\": \"Should fail validation\",\n  \"startingPrice\": 100.00,\n  \"startTime\": \"{{pastStartTime}}\",\n  \"endTime\": \"{{pastEndTime}}\",\n  \"categoryIds\": [{{categoryIdElectronics}}]\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8082/api/items",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items"
+                  ]
+                },
+                "description": "Create item with past start time (should fail @Future validation)"
+              },
+              "response": []
+            },
+            {
+              "name": "Error 10: Create Item - Missing Required Fields",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "",
+                      "pm.test(\"Validation errors present\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.error).to.eql('Validation Failed');",
+                      "    pm.expect(jsonData).to.have.property('fieldErrors');",
+                      "    // Should have errors for title, startingPrice, startTime, endTime",
+                      "    pm.expect(Object.keys(jsonData.fieldErrors).length).to.be.at.least(1);",
+                      "});",
+                      "",
+                      "console.log(\"✅ Missing required fields correctly rejected\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "3ae72750-31ec-4943-814f-3a30a4e67472",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Missing all required fields\"\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8082/api/items",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items"
+                  ]
+                },
+                "description": "Create item missing required fields (title, startingPrice, times)"
+              },
+              "response": []
+            },
+            {
+              "name": "Error 11: Create Category - Empty Name",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "",
+                      "pm.test(\"Validation error for name\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.error).to.eql('Validation Failed');",
+                      "    pm.expect(jsonData).to.have.property('fieldErrors');",
+                      "    pm.expect(jsonData.fieldErrors).to.have.property('name');",
+                      "});",
+                      "",
+                      "console.log(\"✅ Empty category name correctly rejected\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "081e754a-5e2c-4f35-ba7a-59d49c3783ff",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"\"\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8082/api/categories",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "categories"
+                  ]
+                },
+                "description": "Create category with empty name (@NotBlank validation)"
+              },
+              "response": []
+            },
+            {
+              "name": "Error 12: Missing X-Auth-Id on Protected Endpoint",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "",
+                      "pm.test(\"Error about missing header\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    const msg = jsonData.message.toLowerCase();",
+                      "    pm.expect(msg).to.satisfy(function(text) {",
+                      "        return text.includes('x-auth-id') && text.includes('missing');",
+                      "    });",
+                      "});",
+                      "",
+                      "console.log(\"✅ Missing X-Auth-Id on protected endpoint correctly rejected\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "526c6e97-2eff-465b-b02c-1d5f74022c64",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Test Item\",\n  \"description\": \"Test\",\n  \"startingPrice\": 100.00,\n  \"startTime\": \"{{testStartTime}}\",\n  \"endTime\": \"{{testEndTime}}\",\n  \"categoryIds\": [{{categoryIdElectronics}}]\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8082/api/items",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items"
+                  ]
+                },
+                "description": "Create item without X-Auth-Id header"
+              },
+              "response": []
+            }
+          ],
+          "id": "fc977d94-1e2a-4c93-9312-a1c86c38ee06",
+          "description": "Tests error handling in Item Service"
+        }
+      ],
+      "id": "3172708c-3ff5-4ec5-adc6-342aa23ccbad",
+      "description": "Comprehensive error handling tests covering validation errors, missing headers, and edge cases. Does not test manual lifecycle transitions (handled automatically by scheduler)."
+    },
+    {
+      "name": "3. Auction Lifecycle Edge Cases",
+      "item": [
+        {
+          "name": "Lifecycle 1: Bid on ENDED Auction",
+          "item": [
+            {
+              "name": "Step 1: Create Lifecycle Test Item",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "// Set auction times: start in 5 seconds, end in 1 hour",
+                      "const now = new Date();",
+                      "const startTime = new Date(now.getTime() + 5000);",
+                      "const endTime = new Date(now.getTime() + 3600000);",
+                      "",
+                      "pm.collectionVariables.set(\"lifecycleStartTime\", startTime.toISOString());",
+                      "pm.collectionVariables.set(\"lifecycleEndTime\", endTime.toISOString());"
+                    ],
+                    "type": "text/javascript"
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 201 Created\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "",
+                      "pm.test(\"Item created with PENDING status\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData).to.have.property('id');",
+                      "    pm.expect(jsonData.status).to.eql('PENDING');",
+                      "});",
+                      "",
+                      "const jsonData = pm.response.json();",
+                      "pm.collectionVariables.set(\"lifecycleItemId\", jsonData.id);",
+                      "",
+                      "console.log(\"✅ Lifecycle test item created:\", jsonData.id);"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "7360af87-378c-4e36-a25b-ea3d8dff6de2",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Lifecycle Test - Antique Watch\",\n  \"description\": \"Testing bid rejection on ended auction\",\n  \"startingPrice\": 50.00,\n  \"startTime\": \"{{lifecycleStartTime}}\",\n  \"endTime\": \"{{lifecycleEndTime}}\",\n  \"categoryIds\": [{{categoryIdCollectibles}}]\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8082/api/items",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items"
+                  ]
+                },
+                "description": "Create auction item for lifecycle testing"
+              },
+              "response": []
+            },
+            {
+              "name": "Step 2: Start Auction",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test(\"Auction started - status is ACTIVE\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.status).to.eql('ACTIVE');",
+                      "});",
+                      "",
+                      "console.log(\"✅ Auction started successfully\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "fc148268-fb1a-4c0a-b0eb-e51142a62c32",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:8082/api/items/{{lifecycleItemId}}/start",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items",
+                    "{{lifecycleItemId}}",
+                    "start"
+                  ]
+                },
+                "description": "Start the auction (PENDING → ACTIVE)"
+              },
+              "response": []
+            },
+            {
+              "name": "Step 3: End Auction",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test(\"Auction ended - status is ENDED\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.status).to.eql('ENDED');",
+                      "});",
+                      "",
+                      "console.log(\"✅ Auction ended successfully\");",
+                      "console.log(\"   📨 AuctionEndedEvent published to RabbitMQ\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "a890a303-6f5d-47aa-ad08-bdf23e4fd6aa",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:8082/api/items/{{lifecycleItemId}}/end",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items",
+                    "{{lifecycleItemId}}",
+                    "end"
+                  ]
+                },
+                "description": "End the auction (ACTIVE → ENDED)"
+              },
+              "response": []
+            },
+            {
+              "name": "Step 4: Try to Bid on ENDED Auction ⭐",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 409 CONFLICT\", function () {",
+                      "    pm.response.to.have.status(409);",
+                      "});",
+                      "",
+                      "pm.test(\"Error response indicates auction ended\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData).to.have.property('status', 409);",
+                      "    pm.expect(jsonData).to.have.property('error');",
+                      "    pm.expect(jsonData).to.have.property('message');",
+                      "    const msg = jsonData.message.toLowerCase();",
+                      "    pm.expect(msg).to.satisfy(function(text) {",
+                      "        return text.includes('ended') || text.includes('closed') || text.includes('finished');",
+                      "    });",
+                      "});",
+                      "",
+                      "console.log(\"✅ Bid on ENDED auction correctly rejected with 409 CONFLICT\");",
+                      "console.log(\"   This validates AuctionEndedException handling!\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "44f296fb-9f6e-4c78-bd73-8efd7f2d1641",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{bidderUser1Id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"itemId\": {{lifecycleItemId}},\n  \"bidAmount\": 100.00\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                },
+                "description": "Attempt to place bid on ENDED auction (should return 409 CONFLICT)"
+              },
+              "response": []
+            }
+          ],
+          "id": "b61758e4-03d3-4ca0-96ff-7d609fdaa38a",
+          "description": "Test that bids are rejected on ENDED auctions with 409 CONFLICT status"
+        },
+        {
+          "name": "Lifecycle 2: Bid on PENDING Auction",
+          "item": [
+            {
+              "name": "Step 1: Create PENDING Item",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "// Set auction times: start in 1 hour (future), end in 2 hours",
+                      "const now = new Date();",
+                      "const startTime = new Date(now.getTime() + 3600000);",
+                      "const endTime = new Date(now.getTime() + 7200000);",
+                      "",
+                      "pm.collectionVariables.set(\"pendingStartTime\", startTime.toISOString());",
+                      "pm.collectionVariables.set(\"pendingEndTime\", endTime.toISOString());"
+                    ],
+                    "type": "text/javascript"
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 201 Created\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "",
+                      "pm.test(\"Item created with PENDING status\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData).to.have.property('id');",
+                      "    pm.expect(jsonData.status).to.eql('PENDING');",
+                      "});",
+                      "",
+                      "const jsonData = pm.response.json();",
+                      "pm.collectionVariables.set(\"pendingItemId\", jsonData.id);",
+                      "",
+                      "console.log(\"✅ PENDING item created:\", jsonData.id);",
+                      "console.log(\"   Start time is 1 hour in the future\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "4d637f42-b871-485a-a4a3-63465ea26533",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Pending Auction - Classic Guitar\",\n  \"description\": \"Testing bid rejection on pending auction\",\n  \"startingPrice\": 200.00,\n  \"startTime\": \"{{pendingStartTime}}\",\n  \"endTime\": \"{{pendingEndTime}}\",\n  \"categoryIds\": [{{categoryIdElectronics}}]\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8082/api/items",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items"
+                  ]
+                },
+                "description": "Create item that won't auto-start (scheduled 1 hour in future)"
+              },
+              "response": []
+            },
+            {
+              "name": "Step 2: Verify Item is PENDING",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test(\"Item status is still PENDING\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.status).to.eql('PENDING');",
+                      "});",
+                      "",
+                      "console.log(\"✅ Verified auction is PENDING (not started)\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "6ca7d48c-8d00-4d07-8ca2-f10259a69dbc",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:8082/api/items/{{pendingItemId}}",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items",
+                    "{{pendingItemId}}"
+                  ]
+                },
+                "description": "Confirm item is still in PENDING state"
+              },
+              "response": []
+            },
+            {
+              "name": "Step 3: Try to Bid on PENDING Auction ⭐",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request or 404 Not Found\", function () {",
+                      "    // Could be 400 (auction not active) or 404 (item not found in active auctions)",
+                      "    pm.expect(pm.response.code).to.be.oneOf([400, 404]);",
+                      "});",
+                      "",
+                      "pm.test(\"Error response indicates auction not active\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData).to.have.property('error');",
+                      "    pm.expect(jsonData).to.have.property('message');",
+                      "    const msg = jsonData.message.toLowerCase();",
+                      "    // Accept various error messages about auction state",
+                      "    pm.expect(msg).to.satisfy(function(text) {",
+                      "        return text.includes('not active') || ",
+                      "               text.includes('not started') || ",
+                      "               text.includes('pending') ||",
+                      "               text.includes('not found');",
+                      "    });",
+                      "});",
+                      "",
+                      "console.log(\"✅ Bid on PENDING auction correctly rejected\");",
+                      "console.log(\"   Auction must be ACTIVE to accept bids\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "74a221c8-d876-44f0-990b-0f0ce3bc1245",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{bidderUser1Id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"itemId\": {{pendingItemId}},\n  \"bidAmount\": 250.00\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                },
+                "description": "Attempt to place bid on PENDING auction (should be rejected)"
+              },
+              "response": []
+            }
+          ],
+          "id": "1f5187f1-7e18-4afb-8664-ace15dfd91cd",
+          "description": "Test that bids are rejected on PENDING (not yet started) auctions"
+        },
+        {
+          "name": "Lifecycle 3: Start Already ACTIVE Auction",
+          "item": [
+            {
+              "name": "Step 1: Create Item for Double-Start Test",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const now = new Date();",
+                      "const startTime = new Date(now.getTime() + 5000);",
+                      "const endTime = new Date(now.getTime() + 3600000);",
+                      "",
+                      "pm.collectionVariables.set(\"doubleStartStartTime\", startTime.toISOString());",
+                      "pm.collectionVariables.set(\"doubleStartEndTime\", endTime.toISOString());"
+                    ],
+                    "type": "text/javascript"
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 201 Created\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "",
+                      "pm.test(\"Item created with PENDING status\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData).to.have.property('id');",
+                      "    pm.expect(jsonData.status).to.eql('PENDING');",
+                      "});",
+                      "",
+                      "const jsonData = pm.response.json();",
+                      "pm.collectionVariables.set(\"doubleStartItemId\", jsonData.id);",
+                      "",
+                      "console.log(\"✅ Created item for double-start test:\", jsonData.id);"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "f747c5af-be5f-4b29-8f77-c47c81e66fb5",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Double Start Test - Vintage Vinyl\",\n  \"description\": \"Testing state machine validation\",\n  \"startingPrice\": 75.00,\n  \"startTime\": \"{{doubleStartStartTime}}\",\n  \"endTime\": \"{{doubleStartEndTime}}\",\n  \"categoryIds\": [{{categoryIdCollectibles}}]\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8082/api/items",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items"
+                  ]
+                },
+                "description": "Create item to test double-start prevention"
+              },
+              "response": []
+            },
+            {
+              "name": "Step 2: Start Auction (First Time)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test(\"Auction started - status is ACTIVE\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.status).to.eql('ACTIVE');",
+                      "});",
+                      "",
+                      "console.log(\"✅ Auction started successfully (first time)\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "834e7798-3269-4136-a384-efda0c40e26e",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:8082/api/items/{{doubleStartItemId}}/start",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items",
+                    "{{doubleStartItemId}}",
+                    "start"
+                  ]
+                },
+                "description": "Start auction for the first time"
+              },
+              "response": []
+            },
+            {
+              "name": "Step 3: Try to Start ACTIVE Auction Again ⭐",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request or 409 Conflict\", function () {",
+                      "    pm.expect(pm.response.code).to.be.oneOf([400, 409]);",
+                      "});",
+                      "",
+                      "pm.test(\"Error indicates auction already active\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData).to.have.property('error');",
+                      "    pm.expect(jsonData).to.have.property('message');",
+                      "    const msg = jsonData.message.toLowerCase();",
+                      "    pm.expect(msg).to.satisfy(function(text) {",
+                      "        return text.includes('already') || ",
+                      "               text.includes('active') || ",
+                      "               text.includes('started') ||",
+                      "               text.includes('invalid');",
+                      "    });",
+                      "});",
+                      "",
+                      "console.log(\"✅ Double-start correctly prevented\");",
+                      "console.log(\"   State machine enforces PENDING → ACTIVE transition only once\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "ce67738f-418c-44a0-8dd6-def616dfd848",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:8082/api/items/{{doubleStartItemId}}/start",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items",
+                    "{{doubleStartItemId}}",
+                    "start"
+                  ]
+                },
+                "description": "Attempt to start an already ACTIVE auction (should fail)"
+              },
+              "response": []
+            }
+          ],
+          "id": "b5910b20-bec5-4bd2-956b-940c7cef1902",
+          "description": "Test that starting an already ACTIVE auction is rejected"
+        },
+        {
+          "name": "Lifecycle 4: End Already ENDED Auction",
+          "item": [
+            {
+              "name": "Step 1: Create Item for Double-End Test",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const now = new Date();",
+                      "const startTime = new Date(now.getTime() + 5000);",
+                      "const endTime = new Date(now.getTime() + 3600000);",
+                      "",
+                      "pm.collectionVariables.set(\"doubleEndStartTime\", startTime.toISOString());",
+                      "pm.collectionVariables.set(\"doubleEndEndTime\", endTime.toISOString());"
+                    ],
+                    "type": "text/javascript"
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 201 Created\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "",
+                      "pm.test(\"Item created with PENDING status\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData).to.have.property('id');",
+                      "    pm.expect(jsonData.status).to.eql('PENDING');",
+                      "});",
+                      "",
+                      "const jsonData = pm.response.json();",
+                      "pm.collectionVariables.set(\"doubleEndItemId\", jsonData.id);",
+                      "",
+                      "console.log(\"✅ Created item for double-end test:\", jsonData.id);"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "4aa18be3-96c4-4fd5-9b07-e5235fa60f1b",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Double End Test - Rare Stamp\",\n  \"description\": \"Testing state machine validation\",\n  \"startingPrice\": 120.00,\n  \"startTime\": \"{{doubleEndStartTime}}\",\n  \"endTime\": \"{{doubleEndEndTime}}\",\n  \"categoryIds\": [{{categoryIdCollectibles}}]\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8082/api/items",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items"
+                  ]
+                },
+                "description": "Create item to test double-end prevention"
+              },
+              "response": []
+            },
+            {
+              "name": "Step 2: Start Auction",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test(\"Auction started - status is ACTIVE\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.status).to.eql('ACTIVE');",
+                      "});",
+                      "",
+                      "console.log(\"✅ Auction started successfully\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "2ce569b4-975c-4148-8411-21312102baf6",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:8082/api/items/{{doubleEndItemId}}/start",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items",
+                    "{{doubleEndItemId}}",
+                    "start"
+                  ]
+                },
+                "description": "Start the auction"
+              },
+              "response": []
+            },
+            {
+              "name": "Step 3: End Auction (First Time)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test(\"Auction ended - status is ENDED\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.status).to.eql('ENDED');",
+                      "});",
+                      "",
+                      "console.log(\"✅ Auction ended successfully (first time)\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "c01478ea-5ff8-47ee-875e-de1b22422e38",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:8082/api/items/{{doubleEndItemId}}/end",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items",
+                    "{{doubleEndItemId}}",
+                    "end"
+                  ]
+                },
+                "description": "End auction for the first time"
+              },
+              "response": []
+            },
+            {
+              "name": "Step 4: Try to End ENDED Auction Again ⭐",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request or 409 Conflict\", function () {",
+                      "    pm.expect(pm.response.code).to.be.oneOf([400, 409]);",
+                      "});",
+                      "",
+                      "pm.test(\"Error indicates auction already ended\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData).to.have.property('error');",
+                      "    pm.expect(jsonData).to.have.property('message');",
+                      "    const msg = jsonData.message.toLowerCase();",
+                      "    pm.expect(msg).to.satisfy(function(text) {",
+                      "        return text.includes('already') || ",
+                      "               text.includes('ended') || ",
+                      "               text.includes('closed') ||",
+                      "               text.includes('invalid');",
+                      "    });",
+                      "});",
+                      "",
+                      "console.log(\"✅ Double-end correctly prevented\");",
+                      "console.log(\"   State machine enforces ACTIVE → ENDED transition only once\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "fbe88172-02f5-48ec-baa2-3d3b993b88df",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:8082/api/items/{{doubleEndItemId}}/end",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items",
+                    "{{doubleEndItemId}}",
+                    "end"
+                  ]
+                },
+                "description": "Attempt to end an already ENDED auction (should fail)"
+              },
+              "response": []
+            }
+          ],
+          "id": "9a87e545-a9f3-4a92-9fd6-7207b9b4977f",
+          "description": "Test that ending an already ENDED auction is rejected"
+        },
+        {
+          "name": "Lifecycle 5: Create Auction - endTime Before startTime",
+          "item": [
+            {
+              "name": "Try to Create Item with Invalid Times ⭐",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "// Set endTime BEFORE startTime (invalid)",
+                      "const now = new Date();",
+                      "const startTime = new Date(now.getTime() + 3600000); // 1 hour from now",
+                      "const endTime = new Date(now.getTime() + 1800000);   // 30 minutes from now (BEFORE startTime!)",
+                      "",
+                      "pm.collectionVariables.set(\"invalidStartTime\", startTime.toISOString());",
+                      "pm.collectionVariables.set(\"invalidEndTime\", endTime.toISOString());"
+                    ],
+                    "type": "text/javascript"
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "",
+                      "pm.test(\"Validation error for endTime or time order\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.error).to.be.oneOf(['Validation Failed', 'Bad Request']);",
+                      "    pm.expect(jsonData).to.have.property('message');",
+                      "    const msg = jsonData.message.toLowerCase();",
+                      "    // Accept messages about end time, start time, or time order",
+                      "    pm.expect(msg).to.satisfy(function(text) {",
+                      "        return text.includes('end') || ",
+                      "               text.includes('start') || ",
+                      "               text.includes('before') ||",
+                      "               text.includes('after') ||",
+                      "               text.includes('time');",
+                      "    });",
+                      "});",
+                      "",
+                      "console.log(\"✅ Invalid auction times correctly rejected\");",
+                      "console.log(\"   endTime must be after startTime\");"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "55a43e03-9e12-4b67-a3ae-024cd48558a5",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Invalid Times Test - Should Fail\",\n  \"description\": \"Testing time validation\",\n  \"startingPrice\": 50.00,\n  \"startTime\": \"{{invalidStartTime}}\",\n  \"endTime\": \"{{invalidEndTime}}\",\n  \"categoryIds\": [{{categoryIdElectronics}}]\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8082/api/items",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items"
+                  ]
+                },
+                "description": "Attempt to create auction with endTime before startTime (should fail validation)"
+              },
+              "response": []
+            }
+          ],
+          "id": "8d9eb655-c588-4410-ab79-9934c4acf5ed",
+          "description": "Test that invalid auction time ordering (endTime < startTime) is rejected"
+        }
+      ],
+      "id": "7f064f92-3727-4a3d-8325-e9f545c7638d",
+      "description": "Tests for auction state machine validation and lifecycle edge cases"
+    },
+    {
+      "name": "4. Concurrency & Race Conditions",
+      "item": [
+        {
+          "name": "Race 1: Concurrent Bids on Same Item",
+          "item": [
+            {
+              "name": "Setup: Create & Start Auction",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const now = new Date();",
+                      "const startTime = new Date(now.getTime() + 5000);",
+                      "const endTime = new Date(now.getTime() + 3600000);",
+                      "",
+                      "pm.collectionVariables.set(\"raceStartTime\", startTime.toISOString());",
+                      "pm.collectionVariables.set(\"raceEndTime\", endTime.toISOString());"
+                    ],
+                    "type": "text/javascript"
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Item created\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "",
+                      "const jsonData = pm.response.json();",
+                      "pm.collectionVariables.set(\"raceItemId\", jsonData.id);",
+                      "",
+                      "// Auto-start the auction",
+                      "pm.sendRequest({",
+                      "    url: 'http://localhost:8082/api/items/' + jsonData.id + '/start',",
+                      "    method: 'PATCH',",
+                      "    header: {",
+                      "        'X-Auth-Id': pm.collectionVariables.get('sellerUserId')",
+                      "    }",
+                      "}, function (err, response) {",
+                      "    console.log('✅ Auction started for race condition test');",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "156aae17-8ebb-4467-927a-eaec6bd1c408",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Concurrency Test - Smartphone\",\n  \"description\": \"Testing concurrent bidding\",\n  \"startingPrice\": 200.00,\n  \"startTime\": \"{{raceStartTime}}\",\n  \"endTime\": \"{{raceEndTime}}\",\n  \"categoryIds\": [{{categoryIdElectronics}}]\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8082/api/items",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Bid 1: User1 Bids $250 ⭐",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Bid accepted (201) or lock conflict (409)\", function () {",
+                      "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                      "});",
+                      "",
+                      "if (pm.response.code === 201) {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.collectionVariables.set(\"raceBid1Id\", jsonData.id);",
+                      "    pm.collectionVariables.set(\"raceBid1Amount\", jsonData.bidAmount);",
+                      "    console.log('✅ User1 bid accepted: $' + jsonData.bidAmount);",
+                      "} else {",
+                      "    console.log('⚠️  User1 bid rejected due to lock conflict (expected in race condition)');",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "c8d5249d-17c6-4d20-ac76-51bfdc1a3504",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{bidderUser1Id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"itemId\": {{raceItemId}},\n  \"bidAmount\": 250.00\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Bid 2: User2 Bids $260 (Concurrent) ⭐",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Bid accepted (201) or lock conflict (409)\", function () {",
+                      "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                      "});",
+                      "",
+                      "if (pm.response.code === 201) {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.collectionVariables.set(\"raceBid2Id\", jsonData.id);",
+                      "    pm.collectionVariables.set(\"raceBid2Amount\", jsonData.bidAmount);",
+                      "    console.log('✅ User2 bid accepted: $' + jsonData.bidAmount);",
+                      "} else {",
+                      "    console.log('⚠️  User2 bid rejected due to lock conflict (expected in race condition)');",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "9fd9b7e3-0d00-4295-bbcf-4fd9d21cd3e8",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{bidderUser2Id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"itemId\": {{raceItemId}},\n  \"bidAmount\": 260.00\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Bid 3: User3 Bids $270 (Concurrent) ⭐",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Bid accepted (201) or lock conflict (409)\", function () {",
+                      "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                      "});",
+                      "",
+                      "if (pm.response.code === 201) {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.collectionVariables.set(\"raceBid3Id\", jsonData.id);",
+                      "    pm.collectionVariables.set(\"raceBid3Amount\", jsonData.bidAmount);",
+                      "    console.log('✅ User3 bid accepted: $' + jsonData.bidAmount);",
+                      "} else {",
+                      "    console.log('⚠️  User3 bid rejected due to lock conflict (expected in race condition)');",
+                      "}"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "4735e226-c765-4311-912c-47079b8707ec",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{bidderUser3Id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"itemId\": {{raceItemId}},\n  \"bidAmount\": 270.00\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Verify: Check Bid History",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test(\"All accepted bids are recorded\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    const bidCount = jsonData.content.length;",
+                      "    pm.expect(bidCount).to.be.at.least(1);",
+                      "    pm.expect(bidCount).to.be.at.most(3);",
+                      "    console.log('📊 Total bids recorded: ' + bidCount);",
+                      "});",
+                      "",
+                      "pm.test(\"Bids are in descending order\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    const bids = jsonData.content;",
+                      "    for (let i = 0; i < bids.length - 1; i++) {",
+                      "        pm.expect(bids[i].bidAmount).to.be.at.least(bids[i + 1].bidAmount);",
+                      "    }",
+                      "});",
+                      "",
+                      "pm.test(\"Only one bid is marked as current highest\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    const highestBids = jsonData.content.filter(b => b.isCurrentHighest);",
+                      "    pm.expect(highestBids.length).to.eql(1);",
+                      "    console.log('✅ Highest bid: $' + highestBids[0].bidAmount + ' by ' + highestBids[0].bidderId);",
+                      "});",
+                      "",
+                      "console.log('\\n🎯 Race condition test complete!');",
+                      "console.log('   Redis distributed locking ensured data consistency');"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "8ae62cbf-e2e5-47a8-b739-0321c6c8de7a",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:8083/api/bids/items/{{raceItemId}}?sort=bidAmount,desc",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids",
+                    "items",
+                    "{{raceItemId}}"
+                  ],
+                  "query": [
+                    {
+                      "key": "sort",
+                      "value": "bidAmount,desc"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ],
+          "id": "1dc4948f-71cc-4ebf-8795-4c70a22e8f96",
+          "description": "Test concurrent bids from multiple users. Redis distributed locks should prevent race conditions. Run this folder with Collection Runner using 'Run Requests Manually' mode to simulate near-simultaneous bids."
+        },
+        {
+          "name": "Race 2: Rapid Sequential Bids",
+          "item": [
+            {
+              "name": "Setup: Create & Start Auction",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const now = new Date();",
+                      "const startTime = new Date(now.getTime() + 5000);",
+                      "const endTime = new Date(now.getTime() + 3600000);",
+                      "",
+                      "pm.collectionVariables.set(\"rapidStartTime\", startTime.toISOString());",
+                      "pm.collectionVariables.set(\"rapidEndTime\", endTime.toISOString());"
+                    ],
+                    "type": "text/javascript"
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Item created\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "",
+                      "const jsonData = pm.response.json();",
+                      "pm.collectionVariables.set(\"rapidItemId\", jsonData.id);",
+                      "",
+                      "// Auto-start",
+                      "pm.sendRequest({",
+                      "    url: 'http://localhost:8082/api/items/' + jsonData.id + '/start',",
+                      "    method: 'PATCH',",
+                      "    header: { 'X-Auth-Id': pm.collectionVariables.get('sellerUserId') }",
+                      "}, function (err, response) {",
+                      "    console.log('✅ Auction started for rapid bidding test');",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "765d954a-e00c-4548-9927-e4238f0e0943",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Rapid Bidding Test - Laptop\",\n  \"description\": \"Testing rapid sequential bids\",\n  \"startingPrice\": 300.00,\n  \"startTime\": \"{{rapidStartTime}}\",\n  \"endTime\": \"{{rapidEndTime}}\",\n  \"categoryIds\": [{{categoryIdElectronics}}]\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8082/api/items",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Rapid Bid 1: $350",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Bid 1 accepted\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "console.log('✅ Rapid bid 1: $350');"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "f4735765-a134-41f6-a1dd-3ffe1d5803d3",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{bidderUser1Id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"itemId\": {{rapidItemId}},\n  \"bidAmount\": 350.00\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Rapid Bid 2: $400 (Immediate)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Bid 2 accepted\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "console.log('✅ Rapid bid 2: $400');"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "93aae2a6-6dc5-4603-9b90-5722bffa6fca",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{bidderUser2Id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"itemId\": {{rapidItemId}},\n  \"bidAmount\": 400.00\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Rapid Bid 3: $450 (Immediate)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Bid 3 accepted\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "console.log('✅ Rapid bid 3: $450');"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "d168d981-c958-4d87-a322-e79b21c3aa69",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{bidderUser3Id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"itemId\": {{rapidItemId}},\n  \"bidAmount\": 450.00\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Rapid Bid 4: $500 (Immediate)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Bid 4 accepted\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "console.log('✅ Rapid bid 4: $500');"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "39654a18-d7e4-414b-8c5d-20d73944d530",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{bidderUser1Id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"itemId\": {{rapidItemId}},\n  \"bidAmount\": 500.00\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Rapid Bid 5: $550 (Immediate)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Bid 5 accepted\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "console.log('✅ Rapid bid 5: $550');"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "766742d8-1ef0-483c-9f8c-d8c6e3d86bf8",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{bidderUser2Id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"itemId\": {{rapidItemId}},\n  \"bidAmount\": 550.00\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Verify: All 5 Bids Recorded",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "",
+                      "pm.test(\"All 5 bids recorded\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    pm.expect(jsonData.content.length).to.eql(5);",
+                      "});",
+                      "",
+                      "pm.test(\"Highest bid is $550\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    const highest = jsonData.content.find(b => b.isCurrentHighest);",
+                      "    pm.expect(highest.bidAmount).to.eql(550.00);",
+                      "});",
+                      "",
+                      "pm.test(\"isCurrentHighest flags are correct\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    const highestBids = jsonData.content.filter(b => b.isCurrentHighest);",
+                      "    pm.expect(highestBids.length).to.eql(1);",
+                      "    ",
+                      "    const notHighest = jsonData.content.filter(b => !b.isCurrentHighest);",
+                      "    pm.expect(notHighest.length).to.eql(4);",
+                      "});",
+                      "",
+                      "console.log('\\n🎯 Rapid sequential bidding test complete!');",
+                      "console.log('   All bids processed correctly without data corruption');"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "2a2c6786-7795-467f-934e-4c4017136cd7",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:8083/api/bids/items/{{rapidItemId}}?sort=bidAmount,desc",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids",
+                    "items",
+                    "{{rapidItemId}}"
+                  ],
+                  "query": [
+                    {
+                      "key": "sort",
+                      "value": "bidAmount,desc"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ],
+          "id": "65b3812b-fe07-4f3d-a2be-ab1a2be84509",
+          "description": "Test rapid sequential bids (5 bids as fast as possible). Validates that Redis locking handles high-frequency bid submissions without data corruption."
+        },
+        {
+          "name": "Race 3: Bid During State Transition",
+          "item": [
+            {
+              "name": "Setup: Create & Start Auction",
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const now = new Date();",
+                      "const startTime = new Date(now.getTime() + 5000);",
+                      "const endTime = new Date(now.getTime() + 3600000);",
+                      "",
+                      "pm.collectionVariables.set(\"transitionStartTime\", startTime.toISOString());",
+                      "pm.collectionVariables.set(\"transitionEndTime\", endTime.toISOString());"
+                    ],
+                    "type": "text/javascript"
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Item created\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "",
+                      "const jsonData = pm.response.json();",
+                      "pm.collectionVariables.set(\"transitionItemId\", jsonData.id);",
+                      "",
+                      "// Auto-start",
+                      "pm.sendRequest({",
+                      "    url: 'http://localhost:8082/api/items/' + jsonData.id + '/start',",
+                      "    method: 'PATCH',",
+                      "    header: { 'X-Auth-Id': pm.collectionVariables.get('sellerUserId') }",
+                      "}, function (err, response) {",
+                      "    console.log('✅ Auction started for state transition test');",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "48265b0c-afc6-4314-89fe-2ee2b16a65d0",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"State Transition Test - Tablet\",\n  \"description\": \"Testing bid during auction end\",\n  \"startingPrice\": 150.00,\n  \"startTime\": \"{{transitionStartTime}}\",\n  \"endTime\": \"{{transitionEndTime}}\",\n  \"categoryIds\": [{{categoryIdElectronics}}]\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8082/api/items",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Place Initial Bid",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Initial bid accepted\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "console.log('✅ Initial bid placed: $200');"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "d859a4bd-02cf-4a65-8e82-9e47510e56b2",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{bidderUser1Id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"itemId\": {{transitionItemId}},\n  \"bidAmount\": 200.00\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Trigger: End Auction (Parallel)",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Auction ended\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "console.log('✅ Auction ended (state transition triggered)');"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "dcd13186-47e7-4547-93fd-ec8471e48e1c",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{sellerUserId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:8082/api/items/{{transitionItemId}}/end",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8082",
+                  "path": [
+                    "api",
+                    "items",
+                    "{{transitionItemId}}",
+                    "end"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Race: Try to Bid During/After End ⭐",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Bid rejected with 409 CONFLICT\", function () {",
+                      "    pm.response.to.have.status(409);",
+                      "});",
+                      "",
+                      "pm.test(\"Error indicates auction ended\", function () {",
+                      "    const jsonData = pm.response.json();",
+                      "    const msg = jsonData.message.toLowerCase();",
+                      "    pm.expect(msg).to.satisfy(function(text) {",
+                      "        return text.includes('ended') || text.includes('closed');",
+                      "    });",
+                      "});",
+                      "",
+                      "console.log('✅ Bid correctly rejected - auction ended');",
+                      "console.log('   Cache invalidation from AuctionEndedEvent worked!');"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ],
+              "id": "523ffe26-47c9-474e-a66c-e4f8444e7fbf",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "X-Auth-Id",
+                    "value": "{{bidderUser2Id}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"itemId\": {{transitionItemId}},\n  \"bidAmount\": 250.00\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:8083/api/bids",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8083",
+                  "path": [
+                    "api",
+                    "bids"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ],
+          "id": "b181b1c0-332a-44ae-916a-4854a34508d0",
+          "description": "Test bidding during auction state transition (ACTIVE → ENDED). Validates that AuctionEndedEvent properly invalidates cache and subsequent bids are rejected."
+        }
+      ],
+      "id": "b0133d4f-0f89-47ee-b26d-3bf1830dff3a",
+      "description": "Tests for race conditions, concurrent operations, and distributed locking behavior. These tests validate Redis distributed locks prevent data corruption during simultaneous operations."
+    },
+    {
+      "name": "4. Freeze Period & Time Modification Tests",
+      "item": [
+        {
+          "name": "Freeze Test 1: Create Item with Far Future Start (> 24h)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Item created successfully\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.collectionVariables.set(\"freezeTestItemId\", jsonData.id);",
+                  "    console.log(\"✅ Created freeze test item, ID:\", jsonData.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "e1179605-545e-40b8-b5a1-c476d94c2117",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Auth-Id",
+                "value": "{{sellerUserId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Freeze Period Test Item\",\n  \"description\": \"Testing 24-hour freeze period enforcement\",\n  \"categoryId\": {{categoryIdElectronics}},\n  \"startingPrice\": 100,\n  \"startTime\": \"{{$isoTimestamp}}\",\n  \"endTime\": \"2026-12-31T23:59:59Z\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8082/api/items",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "items"
+              ]
+            },
+            "description": "Create auction item with start time far in future (> 24 hours from now) to allow time modifications"
+          },
+          "response": []
+        },
+        {
+          "name": "Freeze Test 2: Update Times Successfully (Outside Freeze Period)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Times updated successfully\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    console.log(\"✅ Times updated successfully (outside freeze period)\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "7743f234-c8fc-4369-b590-3757f3787f27",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Auth-Id",
+                "value": "{{sellerUserId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startTime\": \"2026-01-01T00:00:00Z\",\n  \"endTime\": \"2026-01-31T23:59:59Z\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8082/api/items/{{freezeTestItemId}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "items",
+                "{{freezeTestItemId}}"
+              ]
+            },
+            "description": "Update auction times when outside freeze period - should succeed"
+          },
+          "response": []
+        },
+        {
+          "name": "Freeze Test 3: Create Item with Near Start Time (< 24h)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Calculate timestamps for freeze period test",
+                  "const now = new Date();",
+                  "const in12Hours = new Date(now.getTime() + 12 * 60 * 60 * 1000);",
+                  "const in48Hours = new Date(now.getTime() + 48 * 60 * 60 * 1000);",
+                  "",
+                  "pm.collectionVariables.set(\"freezeStartTime\", in12Hours.toISOString());",
+                  "pm.collectionVariables.set(\"freezeEndTime\", in48Hours.toISOString());",
+                  "",
+                  "console.log(\"📅 Start time (in 12h):\", in12Hours.toISOString());",
+                  "console.log(\"📅 End time (in 48h):\", in48Hours.toISOString());"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Item created for freeze violation test\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.collectionVariables.set(\"freezeViolationItemId\", jsonData.id);",
+                  "    console.log(\"✅ Created item for freeze violation test, ID:\", jsonData.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "d9168c0b-a987-4741-9740-fa60b01445b9",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Auth-Id",
+                "value": "{{sellerUserId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Freeze Violation Test Item\",\n  \"description\": \"Testing freeze period enforcement within 24 hours\",\n  \"categoryId\": {{categoryIdElectronics}},\n  \"startingPrice\": 100,\n  \"startTime\": \"{{freezeStartTime}}\",\n  \"endTime\": \"{{freezeEndTime}}\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8082/api/items",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "items"
+              ]
+            },
+            "description": "Create auction with start time in 12 hours (within 24-hour freeze period)"
+          },
+          "response": []
+        },
+        {
+          "name": "Freeze Test 4: Attempt Time Update Within Freeze Period ⭐",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 403 Forbidden\", function () {",
+                  "    pm.response.to.have.status(403);",
+                  "});",
+                  "",
+                  "pm.test(\"Error message mentions freeze period\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "    const msg = jsonData.message.toLowerCase();",
+                  "    pm.expect(msg).to.include('freeze');",
+                  "    console.log(\"✅ Freeze period violation correctly blocked:\", jsonData.message);",
+                  "});",
+                  "",
+                  "pm.test(\"Error response has required fields\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('timestamp');",
+                  "    pm.expect(jsonData).to.have.property('path');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "8fb86d58-28d1-44c1-a691-b7229d2a04fd",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Auth-Id",
+                "value": "{{sellerUserId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startTime\": \"2027-01-01T00:00:00Z\",\n  \"endTime\": \"2027-01-31T23:59:59Z\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8082/api/items/{{freezeViolationItemId}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "items",
+                "{{freezeViolationItemId}}"
+              ]
+            },
+            "description": "⭐ KEY TEST: Attempt to modify auction times within 24-hour freeze period - should fail with 403 Forbidden"
+          },
+          "response": []
+        },
+        {
+          "name": "Freeze Test 5: Non-Time Fields Can Still Be Updated",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Title and description updated successfully\", function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.title).to.eql(\"Updated Title During Freeze\");",
+                  "    pm.expect(jsonData.description).to.eql(\"Non-time fields are not restricted\");",
+                  "    console.log(\"✅ Non-time fields updated successfully during freeze period\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "id": "b50c0d75-2929-452f-8a61-50382315b0f8",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Auth-Id",
+                "value": "{{sellerUserId}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Title During Freeze\",\n  \"description\": \"Non-time fields are not restricted\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8082/api/items/{{freezeViolationItemId}}",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8082",
+              "path": [
+                "api",
+                "items",
+                "{{freezeViolationItemId}}"
+              ]
+            },
+            "description": "Verify that non-time fields (title, description, etc.) can still be updated during freeze period"
+          },
+          "response": []
+        }
+      ],
+      "id": "0fb953d6-3cb0-4499-9e9b-517f08dae311",
+      "description": "Tests for 24-hour freeze period enforcement. Validates that auction times cannot be modified within 24 hours of the start time, ensuring fairness and preventing last-minute rule changes."
+    }
+  ],
+  "variable": [
+    {
+      "id": "de17a2b5-1d38-401f-bc8a-225aa032a6d9",
+      "key": "categoryIdElectronics",
+      "value": ""
+    },
+    {
+      "id": "048a26b9-d634-48de-8e00-5291c45a038b",
+      "key": "categoryIdCollectibles",
+      "value": ""
+    },
+    {
+      "id": "9dfa5438-3285-4049-8190-adffb90a46c9",
+      "key": "sellerUserId",
+      "value": ""
+    },
+    {
+      "id": "972026b9-608e-4aad-918f-3c9c5ade79cb",
+      "key": "bidderUser1Id",
+      "value": ""
+    },
+    {
+      "id": "aca8fe2c-ca5a-468b-a99c-11ea136b57b3",
+      "key": "bidderUser2Id",
+      "value": ""
+    },
+    {
+      "id": "309c36b4-fab4-4579-9f3a-1107fa14fc38",
+      "key": "bidderUser3Id",
+      "value": ""
+    },
+    {
+      "id": "bc15f785-5bcb-4ac4-8f25-22e403872e1f",
+      "key": "testItemId",
+      "value": ""
+    },
+    {
+      "id": "e87cddf6-4060-46da-b980-bbc5ad3f0808",
+      "key": "testStartTime",
+      "value": ""
+    },
+    {
+      "id": "6783ad9b-b3d6-40a2-8766-4f92d368e69c",
+      "key": "testEndTime",
+      "value": ""
+    },
+    {
+      "id": "022d2bb7-20d0-431f-9fca-02594cffbf02",
+      "key": "firstBidId",
+      "value": ""
+    },
+    {
+      "id": "d7af83f4-9e09-49d9-bac1-02d84ec794b0",
+      "key": "pastStartTime",
+      "value": ""
+    },
+    {
+      "id": "f2666a67-e6b1-434c-893d-3717ad0c3678",
+      "key": "pastEndTime",
+      "value": ""
+    },
+    {
+      "id": "456df840-09df-4e6f-be84-d520428323e9",
+      "key": "lifecycleItemId",
+      "value": ""
+    },
+    {
+      "id": "6d7355d9-a958-41c8-a48b-ebdc63165e3a",
+      "key": "lifecycleStartTime",
+      "value": ""
+    },
+    {
+      "id": "f7042542-4525-4459-9c48-5f820c890930",
+      "key": "lifecycleEndTime",
+      "value": ""
+    },
+    {
+      "id": "7b9ba38f-8530-4f3f-a88c-dac26909d78a",
+      "key": "pendingItemId",
+      "value": ""
+    },
+    {
+      "id": "a05e4cd4-7d14-4cca-b71f-0b5985bbe223",
+      "key": "pendingStartTime",
+      "value": ""
+    },
+    {
+      "id": "d4ac3ee4-d876-4968-b6eb-90119f67d9e5",
+      "key": "pendingEndTime",
+      "value": ""
+    },
+    {
+      "id": "4710e625-164f-423f-95c0-1f01d23a3e76",
+      "key": "doubleStartItemId",
+      "value": ""
+    },
+    {
+      "id": "03e413ca-c0a2-43ec-b882-14d3b3caaecf",
+      "key": "doubleStartStartTime",
+      "value": ""
+    },
+    {
+      "id": "fcf1d8f0-c157-4d40-97a6-f9ab0c411871",
+      "key": "doubleStartEndTime",
+      "value": ""
+    },
+    {
+      "id": "a2fe0830-37d9-4316-9fc2-05f79460e48e",
+      "key": "doubleEndItemId",
+      "value": ""
+    },
+    {
+      "id": "9c64994b-9ead-4255-8bae-5048400a125e",
+      "key": "doubleEndStartTime",
+      "value": ""
+    },
+    {
+      "id": "0d288113-1b03-4c72-9376-36a6b01622b5",
+      "key": "doubleEndEndTime",
+      "value": ""
+    },
+    {
+      "id": "5bc38a7b-4382-4272-9f02-b9d4fc1d5398",
+      "key": "invalidStartTime",
+      "value": ""
+    },
+    {
+      "id": "5e5d6c11-ff8d-4032-b51e-a322abb4f15a",
+      "key": "invalidEndTime",
+      "value": ""
+    },
+    {
+      "id": "39f1fdc3-7c90-4c5e-ac87-8da20a69ee34",
+      "key": "raceItemId",
+      "value": ""
+    },
+    {
+      "id": "86d36d3e-2392-4b7e-a4a9-bc13bbfbbf1b",
+      "key": "raceStartTime",
+      "value": ""
+    },
+    {
+      "id": "bc5498f4-808f-4116-a04f-49cc77b42b80",
+      "key": "raceEndTime",
+      "value": ""
+    },
+    {
+      "id": "fc373471-d335-4a6c-912e-77899dc3f97d",
+      "key": "raceBid1Id",
+      "value": ""
+    },
+    {
+      "id": "f761e77b-5f71-415c-ad8f-6a96b84ce413",
+      "key": "raceBid2Id",
+      "value": ""
+    },
+    {
+      "id": "7b47dbe0-0ac8-4286-915a-beb34ac0af05",
+      "key": "raceBid3Id",
+      "value": ""
+    },
+    {
+      "id": "d1d860d4-17be-453e-99f5-7a19fc7e83a5",
+      "key": "rapidItemId",
+      "value": ""
+    },
+    {
+      "id": "4d15fffa-5ec6-4390-ad24-822a250ae47e",
+      "key": "rapidStartTime",
+      "value": ""
+    },
+    {
+      "id": "c711e14f-a574-4707-ba5f-5eeb8c85bc46",
+      "key": "rapidEndTime",
+      "value": ""
+    },
+    {
+      "id": "33e20cea-a720-47c6-a66f-95a686acbaf1",
+      "key": "transitionItemId",
+      "value": ""
+    },
+    {
+      "id": "31cf4887-00b3-4931-b678-6c2d29674b89",
+      "key": "transitionStartTime",
+      "value": ""
+    },
+    {
+      "id": "823ba2cc-f2d6-4856-ba64-e6282a98d4bb",
+      "key": "transitionEndTime",
+      "value": ""
+    },
+    {
+      "id": "4b1f53c7-b8f4-44c5-8c34-d65c9587b9ed",
+      "key": "freezeTestItemId",
+      "value": ""
+    },
+    {
+      "id": "72417488-2a09-4b2d-baa6-cc4e4d6926ab",
+      "key": "freezeViolationItemId",
+      "value": ""
+    },
+    {
+      "id": "4d338c1a-4816-4f2f-8466-b7d464ee8c78",
+      "key": "freezeStartTime",
+      "value": ""
+    },
+    {
+      "id": "67f99b53-dfd4-440f-8007-426778475b26",
+      "key": "freezeEndTime",
+      "value": ""
+    }
+  ]
+}
