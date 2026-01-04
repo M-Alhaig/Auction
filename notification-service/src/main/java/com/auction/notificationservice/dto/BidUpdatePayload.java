@@ -14,7 +14,7 @@ import java.util.UUID;
  */
 public record BidUpdatePayload(
     Long itemId,
-    UUID bidderId,
+    UUID bidderId, // TODO: Mask bidderId for privacy
     BigDecimal bidAmount,
     Instant bidTimestamp,
     String message
