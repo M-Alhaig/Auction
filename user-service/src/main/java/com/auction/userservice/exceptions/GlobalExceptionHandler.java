@@ -1,6 +1,7 @@
 package com.auction.userservice.exceptions;
 
 import com.auction.security.EmailNotVerifiedException;
+import com.auction.security.exception.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.Map;
