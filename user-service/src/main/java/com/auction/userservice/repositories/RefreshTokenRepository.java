@@ -24,6 +24,15 @@ import org.springframework.stereotype.Repository;
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
 
   /**
+   * Find token by its public lookup ID.
+   * O(1) indexed lookup - the primary method for token refresh.
+   *
+   * @param tokenId the token's public lookup UUID
+   * @return the token if found
+   */
+  Optional<RefreshToken> findByTokenId(UUID tokenId);
+
+  /**
    * Find all tokens in a token family.
    * Used to revoke entire family on theft detection.
    *

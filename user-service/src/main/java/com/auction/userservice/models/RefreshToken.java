@@ -6,11 +6,13 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -37,7 +39,9 @@ import lombok.Setter;
  * <p>Mapped to "refresh_tokens" table.
  */
 @Entity
-@Table(name = "refresh_tokens")
+@Table(name = "refresh_tokens", indexes = {
+    @Index(name = "idx_refresh_tokens_token_id", columnList = "token_id")
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -48,6 +52,14 @@ public class RefreshToken {
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
+
+  /**
+   * Unique identifier for token lookup.
+   * Client sends this along with the raw token to enable O(1) database lookup.
+   * The actual validation is done via BCrypt matching of tokenHash.
+   */
+  @Column(name = "token_id", nullable = false, unique = true, updatable = false)
+  private UUID tokenId;
 
   /**
    * The user this token belongs to.
@@ -99,6 +111,9 @@ public class RefreshToken {
 
   @PrePersist
   protected void onCreate() {
+    if (tokenId == null) {
+      tokenId = UUID.randomUUID();
+    }
     createdAt = Instant.now();
   }
 

@@ -32,11 +32,13 @@ public interface AuthService {
    * Refresh access token using a valid refresh token.
    * Implements token rotation - old token is revoked, new token issued.
    *
-   * @param request the refresh token request
-   * @param userId the authenticated user's ID (from JWT)
+   * <p>Extracts userId from the (possibly expired) access token in the request,
+   * validates the refresh token belongs to that user.
+   *
+   * @param request the refresh token request (tokenId, refreshToken, accessToken)
    * @return authentication response with new tokens
    */
-  AuthResponse refreshToken(TokenRefreshRequest request, UUID userId);
+  AuthResponse refreshToken(TokenRefreshRequest request);
 
   /**
    * Logout user by revoking all their refresh tokens.

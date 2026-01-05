@@ -139,6 +139,23 @@ public class JwtTokenProvider {
     }
   }
 
+  /**
+   * Extract user ID from an expired token.
+   * Only accepts tokens with valid signature that have expired.
+   * Used for token refresh where we need userId but access token is expired.
+   *
+   * @return userId if token signature is valid (even if expired)
+   * @throws JwtException if token signature is invalid
+   */
+  public UUID getUserIdFromExpiredToken(String token) {
+    try {
+      return getUserIdFromToken(token);
+    } catch (ExpiredJwtException ex) {
+      // Signature was valid but token expired - extract from exception
+      return UUID.fromString(ex.getClaims().getSubject());
+    }
+  }
+
   private Claims parseToken(String token) {
     return Jwts.parser()
         .verifyWith(key)

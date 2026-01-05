@@ -38,11 +38,8 @@ public class AuthController {
   }
 
   @PostMapping("/refresh")
-  @PreAuthorize("isAuthenticated()")
-  public ResponseEntity<AuthResponse> refresh(
-      @Valid @RequestBody TokenRefreshRequest request,
-      @AuthenticationPrincipal UserPrincipal principal) {
-    AuthResponse response = authService.refreshToken(request, principal.getId());
+  public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody TokenRefreshRequest request) {
+    AuthResponse response = authService.refreshToken(request);
     return ResponseEntity.ok(response);
   }
 
