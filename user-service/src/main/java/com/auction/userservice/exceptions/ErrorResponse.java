@@ -1,7 +1,7 @@
 package com.auction.userservice.exceptions;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Map;
 
 /**
@@ -16,7 +16,7 @@ public record ErrorResponse(
     String error,
     String message,
     String path,
-    LocalDateTime timestamp,
+    Instant timestamp,
     Map<String, String> fieldErrors
 ) {
 
@@ -29,7 +29,7 @@ public record ErrorResponse(
    * @param path    request path where the error occurred
    */
   public ErrorResponse(int status, String error, String message, String path) {
-    this(status, error, message, path, LocalDateTime.now(), null);
+    this(status, error, message, path, Instant.now(), null);
   }
 
   /**
@@ -43,6 +43,6 @@ public record ErrorResponse(
    */
   public ErrorResponse(int status, String error, String message, String path,
                        Map<String, String> fieldErrors) {
-    this(status, error, message, path, LocalDateTime.now(), fieldErrors);
+    this(status, error, message, path, Instant.now(), fieldErrors);
   }
 }

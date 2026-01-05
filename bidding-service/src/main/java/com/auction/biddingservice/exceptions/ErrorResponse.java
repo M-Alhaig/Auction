@@ -1,8 +1,7 @@
 package com.auction.biddingservice.exceptions;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Map;
 
 /**
@@ -20,37 +19,33 @@ public record ErrorResponse(
     String error,
     String message,
     String path,
-    LocalDateTime timestamp,
+    Instant timestamp,
     Map<String, String> fieldErrors
 ) {
 
   /**
-   * Create an ErrorResponse for an error without field-level validation details.
+   * Create an ErrorResponse without field-level validation errors.
    *
-   * The timestamp is set to the current time and fieldErrors will be null (omitted from JSON).
-   *
-   * @param status  the HTTP status code
-   * @param error   the HTTP status reason phrase
-   * @param message a human-readable error message
-   * @param path    the request path where the error occurred
+   * @param status  HTTP status code
+   * @param error   HTTP status reason phrase
+   * @param message human-readable error message
+   * @param path    request path where the error occurred
    */
   public ErrorResponse(int status, String error, String message, String path) {
-    this(status, error, message, path, LocalDateTime.now(), null);
+    this(status, error, message, path, Instant.now(), null);
   }
 
   /**
-   * Create an ErrorResponse for validation failures that includes field-level error messages.
+   * Create an ErrorResponse with field-level validation errors.
    *
-   * The created instance uses the current time as the `timestamp`.
-   *
-   * @param status      the HTTP status code
-   * @param error       the HTTP status reason phrase
-   * @param message     a human-readable error message
-   * @param path        the request path where the error occurred
-   * @param fieldErrors a map of field names to validation error messages; included in JSON only if non-null
+   * @param status      HTTP status code
+   * @param error       HTTP status reason phrase
+   * @param message     human-readable error message
+   * @param path        request path where the error occurred
+   * @param fieldErrors map of field names to validation error messages
    */
   public ErrorResponse(int status, String error, String message, String path,
-      Map<String, String> fieldErrors) {
-    this(status, error, message, path, LocalDateTime.now(), fieldErrors);
+                       Map<String, String> fieldErrors) {
+    this(status, error, message, path, Instant.now(), fieldErrors);
   }
 }
