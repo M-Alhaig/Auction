@@ -14,11 +14,11 @@ import org.springframework.validation.annotation.Validated;
  * <p>Configure via application.properties:
  * <pre>
  * jwt.secret=your-base64-encoded-secret-key-at-least-256-bits
- * jwt.access-token-expiration-ms=900000     # 15 minutes
- * jwt.refresh-token-expiration-ms=604800000 # 7 days
+ * jwt.access-token-expiration-ms=900000
+ * jwt.refresh-token-expiration-ms=604800000
  * </pre>
  *
- * <p>The secret must be Base64-encoded and at least 256 bits for HS256.
+ * <p>Generate a secret with: {@code openssl rand -base64 32}
  */
 @Component
 @ConfigurationProperties(prefix = "jwt")
@@ -30,27 +30,21 @@ public class JwtConfig {
   /**
    * Base64-encoded secret key for signing JWTs.
    * Must be at least 256 bits (32 bytes) for HS256.
-   *
-   * <p>Generate with: {@code openssl rand -base64 32}
    */
   @NotBlank(message = "JWT secret is required")
   private String secret;
 
   /**
-   * Access token expiration time in milliseconds.
-   * Default: 15 minutes (900000 ms).
-   *
-   * <p>Short-lived for security. Client refreshes using refresh token.
+   * Access token expiration in milliseconds.
+   * Default: 15 minutes.
    */
   @Positive
-  private long accessTokenExpirationMs = 900_000L; // 15 minutes
+  private long accessTokenExpirationMs = 900_000L;
 
   /**
-   * Refresh token expiration time in milliseconds.
-   * Default: 7 days (604800000 ms).
-   *
-   * <p>Longer-lived, stored securely. Used to obtain new access tokens.
+   * Refresh token expiration in milliseconds.
+   * Default: 7 days.
    */
   @Positive
-  private long refreshTokenExpirationMs = 604_800_000L; // 7 days
+  private long refreshTokenExpirationMs = 604_800_000L;
 }
