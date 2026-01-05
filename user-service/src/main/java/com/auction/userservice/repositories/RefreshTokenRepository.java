@@ -1,7 +1,6 @@
 package com.auction.userservice.repositories;
 
 import com.auction.userservice.models.RefreshToken;
-import com.auction.userservice.models.UserProfile;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -37,22 +36,22 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
    * Find active (non-revoked, non-expired) tokens for a user.
    * Used for session management (show active sessions).
    *
-   * @param user the user profile
+   * @param userId the user's ID
    * @return list of active tokens
    */
-  @Query("SELECT t FROM RefreshToken t WHERE t.user = :user AND t.revoked = false AND t.expiresAt > CURRENT_TIMESTAMP")
-  List<RefreshToken> findActiveTokensByUser(UserProfile user);
+  @Query("SELECT t FROM RefreshToken t WHERE t.user.id = :userId AND t.revoked = false AND t.expiresAt > CURRENT_TIMESTAMP")
+  List<RefreshToken> findActiveTokensByUserId(UUID userId);
 
   /**
    * Find a valid token by user and family.
-   * Used during token refresh to find the current valid token.
+   * Used during token refresh to validate the token belongs to this user.
    *
-   * @param user the user profile
+   * @param userId the user's ID
    * @param tokenFamily the token family
    * @return the valid token if exists
    */
-  @Query("SELECT t FROM RefreshToken t WHERE t.user = :user AND t.tokenFamily = :tokenFamily AND t.revoked = false AND t.expiresAt > CURRENT_TIMESTAMP")
-  Optional<RefreshToken> findValidTokenByUserAndFamily(UserProfile user, String tokenFamily);
+  @Query("SELECT t FROM RefreshToken t WHERE t.user.id = :userId AND t.tokenFamily = :tokenFamily AND t.revoked = false AND t.expiresAt > CURRENT_TIMESTAMP")
+  Optional<RefreshToken> findValidTokenByUserIdAndFamily(UUID userId, String tokenFamily);
 
   /**
    * Revoke all tokens in a token family.
@@ -86,14 +85,4 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
   @Modifying
   @Query("DELETE FROM RefreshToken t WHERE t.expiresAt < :before")
   int deleteExpiredBefore(Instant before);
-
-  /**
-   * Count active sessions for a user.
-   * Used to enforce max session limit if needed.
-   *
-   * @param userId the user's ID
-   * @return count of active (non-revoked, non-expired) tokens
-   */
-  @Query("SELECT COUNT(t) FROM RefreshToken t WHERE t.user.id = :userId AND t.revoked = false AND t.expiresAt > CURRENT_TIMESTAMP")
-  long countActiveSessionsByUserId(UUID userId);
 }

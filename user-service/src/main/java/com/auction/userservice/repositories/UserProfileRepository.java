@@ -36,14 +36,16 @@ public interface UserProfileRepository extends JpaRepository<UserProfile, UUID> 
   boolean existsByEmail(String email);
 
   /**
-   * Find enabled users by email.
-   * Used for authentication (disabled users cannot log in).
+   * Find user by email if their account is enabled.
+   * Used for authentication - disabled accounts (banned/suspended by admin) cannot log in.
+   *
+   * <p>Note: Unverified users CAN log in, they just can't bid or sell.
+   * Email verification is checked at action time, not login time.
    *
    * @param email the email to search for
-   * @return the enabled user if found
+   * @return the user if found and account is enabled
    */
-  @Query("SELECT u FROM UserProfile u WHERE u.email = :email AND u.enabled = true")
-  Optional<UserProfile> findByEmailAndEnabled(String email);
+  Optional<UserProfile> findByEmailAndEnabledTrue(String email);
 
   /**
    * Update the last login timestamp for a user.
