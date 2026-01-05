@@ -1,4 +1,4 @@
-package com.auction.userservice.exceptions;
+package com.auction.security.exception;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Instant;
@@ -7,8 +7,7 @@ import java.util.Map;
 /**
  * Standardized error response structure for all API errors.
  *
- * <p>TODO: Extract to common-exceptions module to share across all services
- * and eliminate duplication (currently duplicated in item-service, bidding-service, etc.)
+ * <p>Used across all services for consistent error handling.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ErrorResponse(
@@ -22,11 +21,6 @@ public record ErrorResponse(
 
   /**
    * Create an ErrorResponse without field-level validation errors.
-   *
-   * @param status  HTTP status code
-   * @param error   HTTP status reason phrase
-   * @param message human-readable error message
-   * @param path    request path where the error occurred
    */
   public ErrorResponse(int status, String error, String message, String path) {
     this(status, error, message, path, Instant.now(), null);
@@ -34,12 +28,6 @@ public record ErrorResponse(
 
   /**
    * Create an ErrorResponse with field-level validation errors.
-   *
-   * @param status      HTTP status code
-   * @param error       HTTP status reason phrase
-   * @param message     human-readable error message
-   * @param path        request path where the error occurred
-   * @param fieldErrors map of field names to validation error messages
    */
   public ErrorResponse(int status, String error, String message, String path,
                        Map<String, String> fieldErrors) {
