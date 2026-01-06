@@ -1,10 +1,12 @@
 package com.auction.userservice.services;
 
+import com.auction.events.UserRegisteredEvent;
 import com.auction.userservice.dto.AuthResponse;
 import com.auction.userservice.dto.LoginRequest;
 import com.auction.userservice.dto.RegisterRequest;
 import com.auction.userservice.dto.TokenRefreshRequest;
 import com.auction.userservice.dto.UserResponse;
+import com.auction.userservice.events.EventPublisher;
 import com.auction.userservice.exceptions.EmailAlreadyExistsException;
 import com.auction.userservice.exceptions.InvalidCredentialsException;
 import com.auction.userservice.exceptions.TokenExpiredException;
@@ -37,6 +39,7 @@ public class AuthServiceImpl implements AuthService {
   private final JwtTokenProvider jwtTokenProvider;
   private final PasswordEncoder passwordEncoder;
   private final AuthenticationManager authenticationManager;
+  private final EventPublisher eventPublisher;
 
   @Override
   @Transactional
@@ -62,6 +65,15 @@ public class AuthServiceImpl implements AuthService {
     user = userRepository.save(user);
 
     log.info("User registered: {}", user.getEmail());
+
+    // Publish registration event
+    eventPublisher.publish(UserRegisteredEvent.create(
+        user.getId(),
+        user.getEmail(),
+        user.getDisplayName(),
+        user.getRole().name(),
+        AuthProvider.LOCAL.name()
+    ));
 
     return generateAuthResponse(user);
   }
