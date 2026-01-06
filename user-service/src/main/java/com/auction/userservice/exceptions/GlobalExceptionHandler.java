@@ -12,6 +12,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -173,6 +174,27 @@ public class GlobalExceptionHandler {
             ex.getMessage(),
             request.getRequestURI()
         ));
+  }
+
+  // ============== 405 Method Not Allowed ==============
+
+  @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+  public ResponseEntity<ErrorResponse> handleMethodNotSupported(
+      HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
+
+    String attempted = ex.getMethod();
+    String[] supported = ex.getSupportedMethods();
+    String supportedStr = supported != null ? String.join(", ", supported) : "unknown";
+    String message = String.format("Method '%s' is not supported. Supported methods: %s",
+        attempted, supportedStr);
+
+    log.warn("Method not allowed - path: {}, attempted: {}, supported: {}",
+        request.getRequestURI(), attempted, supportedStr);
+
+    ErrorResponse error = new ErrorResponse(
+        HttpStatus.METHOD_NOT_ALLOWED.value(), "Method Not Allowed",
+        message, request.getRequestURI());
+    return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(error);
   }
 
   // ============== 409 Conflict ==============
