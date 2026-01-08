@@ -43,6 +43,7 @@
         .card h2::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
         .card.connected h2::before { background: #4ade80; }
         .card.disconnected h2::before { background: #f87171; }
+        .card.authenticated h2::before { background: #22d3ee; }
 
         .controls { margin-bottom: 20px; }
         .form-group { margin-bottom: 12px; }
@@ -63,9 +64,11 @@
             transition: all 0.2s;
             border: none;
         }
+        .btn-login { background: linear-gradient(135deg, #22d3ee 0%, #0891b2 100%); }
         .btn-connect { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         .btn-disconnect { background: #dc2626; }
         .btn-subscribe { background: #0891b2; margin-top: 8px; }
+        .btn-logout { background: #64748b; margin-top: 8px; }
         button:hover { opacity: 0.9; transform: translateY(-1px); }
         button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
@@ -90,6 +93,7 @@
         .message.error { background: #450a0a; border-left: 3px solid #ef4444; }
         .message.bid { background: #422006; border-left: 3px solid #f59e0b; }
         .message.alert { background: #4c1d95; border-left: 3px solid #a855f7; }
+        .message.auth { background: #164e63; border-left: 3px solid #22d3ee; }
         .message-time { font-size: 0.75rem; color: #64748b; margin-bottom: 4px; }
         .message-content { word-break: break-all; }
 
@@ -104,6 +108,7 @@
         }
         .status.connected { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
         .status.disconnected { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+        .status.authenticated { background: rgba(34, 211, 238, 0.2); color: #22d3ee; }
 
         .subscriptions {
             margin-top: 15px;
@@ -118,6 +123,15 @@
             font-size: 0.75rem;
             margin: 4px;
         }
+
+        .user-info {
+            background: #0f172a;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 0.85rem;
+        }
+        .user-info strong { color: #22d3ee; }
 
         .instructions {
             background: #0f172a;
@@ -136,6 +150,8 @@
             border-radius: 4px;
             font-family: monospace;
         }
+
+        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -143,9 +159,46 @@
         <h1>Notification Service - Live WebSocket Test</h1>
 
         <div class="grid">
+            <!-- Authentication Panel -->
+            <div class="card" id="authCard">
+                <h2>1. Authentication</h2>
+                <div class="status disconnected" id="authStatus">
+                    <span class="status-dot"></span> Not Logged In
+                </div>
+
+                <!-- Login Form -->
+                <div id="loginForm">
+                    <div class="controls">
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="email" value="jwttest@example.com" placeholder="user@example.com" />
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input type="password" id="password" value="Test123!" placeholder="Password" />
+                        </div>
+                        <div class="form-group">
+                            <label>User Service URL</label>
+                            <input type="text" id="userServiceUrl" value="http://localhost:8081" />
+                        </div>
+                        <button class="btn-login" id="loginBtn" onclick="login()">Login to Get JWT</button>
+                    </div>
+                </div>
+
+                <!-- User Info (shown after login) -->
+                <div id="userInfo" class="hidden">
+                    <div class="user-info">
+                        <strong>Logged in as:</strong> <span id="userEmail"></span><br>
+                        <strong>User ID:</strong> <span id="userId"></span><br>
+                        <strong>Role:</strong> <span id="userRole"></span>
+                    </div>
+                    <button class="btn-logout" onclick="logout()">Logout</button>
+                </div>
+            </div>
+
             <!-- Connection Panel -->
             <div class="card" id="connectionCard">
-                <h2>WebSocket Connection</h2>
+                <h2>2. WebSocket Connection</h2>
                 <div class="status disconnected" id="connectionStatus">
                     <span class="status-dot"></span> Disconnected
                 </div>
@@ -155,11 +208,7 @@
                         <label>WebSocket URL</label>
                         <input type="text" id="wsUrl" value="http://localhost:8084/ws" />
                     </div>
-                    <div class="form-group">
-                        <label>User ID (for personal alerts)</label>
-                        <input type="text" id="userId" value="550e8400-e29b-41d4-a716-446655440002" placeholder="UUID" />
-                    </div>
-                    <button class="btn-connect" id="connectBtn" onclick="connect()">Connect</button>
+                    <button class="btn-connect" id="connectBtn" onclick="connect()" disabled>Connect (Login First)</button>
                     <button class="btn-disconnect" id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
                 </div>
 
@@ -171,7 +220,7 @@
 
             <!-- Item Subscription Panel -->
             <div class="card">
-                <h2>Subscribe to Item Updates</h2>
+                <h2>3. Subscribe to Item Updates</h2>
                 <div class="controls">
                     <div class="form-group">
                         <label>Item ID</label>
@@ -194,7 +243,7 @@
             <div class="card">
                 <h2>Personal Alerts (/user/queue/alerts)</h2>
                 <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 15px;">
-                    Auto-subscribed on connect using User ID above
+                    Auto-subscribed on connect. Requires authenticated WebSocket session.
                 </p>
                 <div class="messages" id="alertMessages">
                     <div class="message info">
@@ -204,7 +253,7 @@
             </div>
 
             <!-- Connection Log -->
-            <div class="card">
+            <div class="card" style="grid-column: span 2;">
                 <h2>Connection Log</h2>
                 <div class="messages" id="logMessages"></div>
             </div>
@@ -213,14 +262,15 @@
         <div class="instructions">
             <h3>How to Test</h3>
             <ol>
-                <li>Make sure all services are running: <code>Item (8082)</code>, <code>Bidding (8083)</code>, <code>Notification (8084)</code></li>
-                <li>Click <strong>Connect</strong> to establish WebSocket connection</li>
+                <li>Make sure all services are running: <code>User (8081)</code>, <code>Item (8082)</code>, <code>Bidding (8083)</code>, <code>Notification (8084)</code></li>
+                <li>Click <strong>Login</strong> to authenticate and get a JWT token</li>
+                <li>Click <strong>Connect</strong> to establish WebSocket connection with JWT</li>
                 <li>Enter an Item ID and click <strong>Subscribe to /topic/items/{id}</strong></li>
-                <li>Open a second browser tab with a <strong>different User ID</strong> (e.g., change last digit)</li>
-                <li>Use Postman to place bids:
+                <li>Open a second browser tab and login with a <strong>different user</strong></li>
+                <li>Use Postman (or another tab) to place bids:
                     <ul style="margin-top: 8px; list-style: disc; padding-left: 20px;">
-                        <li>First bid: Bidder 1 places $150 → Watch "Bid Updates" panel</li>
-                        <li>Outbid: Bidder 2 places $200 → Watch Bidder 1's "Personal Alerts" panel</li>
+                        <li>First bid: User 1 places $150 → Watch "Bid Updates" panel</li>
+                        <li>Outbid: User 2 places $200 → Watch User 1's "Personal Alerts" panel</li>
                     </ul>
                 </li>
                 <li>Watch real-time notifications appear!</li>
@@ -231,6 +281,8 @@
     <script>
         let stompClient = null;
         let subscriptions = {};
+        let authToken = null;
+        let currentUser = null;
 
         function log(message, type = 'info') {
             const container = document.getElementById('logMessages');
@@ -265,7 +317,33 @@
             ` + container.innerHTML;
         }
 
-        function updateStatus(connected) {
+        function updateAuthStatus(authenticated) {
+            const status = document.getElementById('authStatus');
+            const card = document.getElementById('authCard');
+            const loginForm = document.getElementById('loginForm');
+            const userInfo = document.getElementById('userInfo');
+            const connectBtn = document.getElementById('connectBtn');
+
+            if (authenticated) {
+                status.className = 'status authenticated';
+                status.innerHTML = '<span class="status-dot"></span> Authenticated';
+                card.className = 'card authenticated';
+                loginForm.classList.add('hidden');
+                userInfo.classList.remove('hidden');
+                connectBtn.disabled = false;
+                connectBtn.textContent = 'Connect';
+            } else {
+                status.className = 'status disconnected';
+                status.innerHTML = '<span class="status-dot"></span> Not Logged In';
+                card.className = 'card';
+                loginForm.classList.remove('hidden');
+                userInfo.classList.add('hidden');
+                connectBtn.disabled = true;
+                connectBtn.textContent = 'Connect (Login First)';
+            }
+        }
+
+        function updateConnectionStatus(connected) {
             const status = document.getElementById('connectionStatus');
             const card = document.getElementById('connectionCard');
             const connectBtn = document.getElementById('connectBtn');
@@ -283,7 +361,7 @@
                 status.className = 'status disconnected';
                 status.innerHTML = '<span class="status-dot"></span> Disconnected';
                 card.className = 'card disconnected';
-                connectBtn.disabled = false;
+                connectBtn.disabled = !authToken;
                 disconnectBtn.disabled = true;
                 subscribeBtn.disabled = true;
             }
@@ -301,10 +379,57 @@
             }
         }
 
-        function connect() {
-            const wsUrl = document.getElementById('wsUrl').value;
-            const userId = document.getElementById('userId').value;
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const userServiceUrl = document.getElementById('userServiceUrl').value;
 
+            log(`Logging in as ${email}...`, 'auth');
+
+            try {
+                const response = await fetch(`${userServiceUrl}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Login failed');
+                }
+
+                const data = await response.json();
+                authToken = data.accessToken;
+                currentUser = data.user;
+
+                document.getElementById('userEmail').textContent = currentUser.email;
+                document.getElementById('userId').textContent = currentUser.id;
+                document.getElementById('userRole').textContent = currentUser.role;
+
+                log(`Logged in successfully as ${currentUser.email}`, 'success');
+                log(`User ID: ${currentUser.id}`, 'auth');
+                updateAuthStatus(true);
+
+            } catch (error) {
+                log(`Login failed: ${error.message}`, 'error');
+            }
+        }
+
+        function logout() {
+            authToken = null;
+            currentUser = null;
+            disconnect();
+            updateAuthStatus(false);
+            log('Logged out', 'auth');
+        }
+
+        function connect() {
+            if (!authToken) {
+                log('Please login first', 'error');
+                return;
+            }
+
+            const wsUrl = document.getElementById('wsUrl').value;
             log(`Connecting to ${wsUrl}...`);
 
             const socket = new SockJS(wsUrl);
@@ -313,10 +438,15 @@
             // Disable debug logging in console
             stompClient.debug = null;
 
-            stompClient.connect({}, function(frame) {
+            // Pass JWT token in STOMP connect headers
+            const headers = {
+                'Authorization': `Bearer ${authToken}`
+            };
+
+            stompClient.connect(headers, function(frame) {
                 log('Connected to WebSocket!', 'success');
-                log(`Session: ${frame.headers['user-name'] || 'anonymous'}`);
-                updateStatus(true);
+                log(`Session: ${frame.headers['user-name'] || currentUser?.email || 'authenticated'}`);
+                updateConnectionStatus(true);
 
                 // Auto-subscribe to personal alerts
                 const alertDest = '/user/queue/alerts';
@@ -330,7 +460,7 @@
 
             }, function(error) {
                 log(`Connection error: ${error}`, 'error');
-                updateStatus(false);
+                updateConnectionStatus(false);
             });
         }
 
@@ -342,7 +472,7 @@
                 updateSubscriptionList();
             }
             log('Disconnected from WebSocket');
-            updateStatus(false);
+            updateConnectionStatus(false);
         }
 
         function subscribeToItem() {
@@ -370,7 +500,7 @@
         }
 
         // Initialize
-        log('WebSocket test page loaded. Click Connect to start.');
+        log('WebSocket test page loaded. Login first, then connect.');
     </script>
 </body>
 </html>
