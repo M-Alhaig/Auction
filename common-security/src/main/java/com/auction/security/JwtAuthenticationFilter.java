@@ -1,34 +1,38 @@
-package com.auction.userservice.security;
+package com.auction.security;
 
-import com.auction.security.AuthConstants;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * JWT authentication filter - runs once per request.
+ * JWT authentication filter for downstream services.
  *
- * <p>Extracts JWT from Authorization header, validates it,
- * and sets SecurityContext so Spring Security knows who's authenticated.
+ * <p>Extracts JWT from Authorization header, validates it using JwtTokenValidator,
+ * and sets SecurityContext with AuthenticatedUser principal.
+ *
+ * <p>This filter runs once per request and is shared across all services
+ * that need JWT authentication (item, bidding, notification).
  */
-@Component
-@RequiredArgsConstructor
 @Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-  private final JwtTokenProvider jwtTokenProvider;
+  private final JwtTokenValidator jwtTokenValidator;
+
+  public JwtAuthenticationFilter(JwtTokenValidator jwtTokenValidator) {
+    this.jwtTokenValidator = jwtTokenValidator;
+  }
 
   @Override
   protected void doFilterInternal(@NonNull HttpServletRequest request,
@@ -38,22 +42,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     String token = extractToken(request);
 
-    if (token != null && jwtTokenProvider.validateToken(token)) {
+    if (token != null && jwtTokenValidator.validateToken(token)) {
       try {
-        UUID userId = jwtTokenProvider.getUserIdFromToken(token);
-        String email = jwtTokenProvider.getEmailFromToken(token);
-        String role = jwtTokenProvider.getRoleFromToken(token);
-        boolean emailVerified = jwtTokenProvider.isEmailVerifiedFromToken(token);
+        UUID userId = jwtTokenValidator.getUserIdFromToken(token);
+        String email = jwtTokenValidator.getEmailFromToken(token);
+        String role = jwtTokenValidator.getRoleFromToken(token);
+        boolean emailVerified = jwtTokenValidator.isEmailVerifiedFromToken(token);
+        boolean enabled = jwtTokenValidator.isEnabledFromToken(token);
 
-        UserPrincipal principal = UserPrincipal.fromJwt(userId, email, role, emailVerified);
+        AuthenticatedUser principal = AuthenticatedUser.fromJwt(userId, email, role, emailVerified, enabled);
 
-        // 3-arg constructor = authenticated token (null = no credentials needed, JWT already validated)
         UsernamePasswordAuthenticationToken authentication =
             new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        log.debug("Authenticated user: {} with role: {}", email, role);
+        log.debug("Authenticated user: {} with role: {}, enabled: {}", email, role, enabled);
 
       } catch (Exception ex) {
         log.warn("Failed to set authentication from token: {}", ex.getMessage());
