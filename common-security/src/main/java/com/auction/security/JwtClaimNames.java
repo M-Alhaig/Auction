@@ -38,12 +38,6 @@ public final class JwtClaimNames {
   public static final String ROLE = "role";
 
   /**
-   * User display name.
-   * Value: Display name string (e.g., "John Doe").
-   */
-  public static final String DISPLAY_NAME = "displayName";
-
-  /**
    * Email verification status.
    * Value: Boolean (true if email is verified).
    *
@@ -51,6 +45,16 @@ public final class JwtClaimNames {
    * protected actions (bidding, creating auctions).
    */
   public static final String EMAIL_VERIFIED = "emailVerified";
+
+  /**
+   * Account enabled status.
+   * Value: Boolean (true if account is enabled).
+   *
+   * <p>Used by services to reject disabled users even if token is valid.
+   * If user is disabled after token issuance, this allows services to
+   * deny access until token expires and refresh fails.
+   */
+  public static final String ENABLED = "enabled";
 
   private JwtClaimNames() {
     // Prevent instantiation

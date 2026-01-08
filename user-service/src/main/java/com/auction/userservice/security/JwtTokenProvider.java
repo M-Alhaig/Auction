@@ -47,6 +47,17 @@ public class JwtTokenProvider {
 
   /**
    * Generate an access token for a user.
+   *
+   * <p>Claims included (minimal for security):
+   * <ul>
+   *   <li>sub - user ID (identity)</li>
+   *   <li>email - user email (identity)</li>
+   *   <li>role - user role (authorization)</li>
+   *   <li>emailVerified - verification status (authorization)</li>
+   *   <li>enabled - account status (authorization)</li>
+   * </ul>
+   *
+   * <p>Note: displayName is NOT included - fetch from user-service when needed.
    */
   public String generateAccessToken(UserProfile user) {
     Instant now = Instant.now();
@@ -56,8 +67,8 @@ public class JwtTokenProvider {
         .subject(user.getId().toString())
         .claim(JwtClaimNames.EMAIL, user.getEmail())
         .claim(JwtClaimNames.ROLE, user.getRole().name())
-        .claim(JwtClaimNames.DISPLAY_NAME, user.getDisplayName())
         .claim(JwtClaimNames.EMAIL_VERIFIED, user.isEmailVerified())
+        .claim(JwtClaimNames.ENABLED, user.isEnabled())
         .issuedAt(Date.from(now))
         .expiration(Date.from(expiry))
         .signWith(key)
