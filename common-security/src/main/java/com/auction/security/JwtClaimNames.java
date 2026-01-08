@@ -7,23 +7,21 @@ package com.auction.security;
  * and parsing (all services). Using constants prevents typos and enables
  * IDE refactoring support.
  *
+ * <p>Note: User ID uses standard JWT "sub" claim via .subject() method,
+ * not a custom claim constant.
+ *
  * <p>Example usage in JwtTokenProvider:
  * <pre>
  * Jwts.builder()
- *     .subject(user.getId().toString())
+ *     .subject(user.getId().toString())  // "sub" claim
  *     .claim(JwtClaimNames.EMAIL, user.getEmail())
  *     .claim(JwtClaimNames.ROLE, user.getRole().name())
  *     .claim(JwtClaimNames.EMAIL_VERIFIED, user.isEmailVerified())
+ *     .claim(JwtClaimNames.ENABLED, user.isEnabled())
  *     ...
  * </pre>
  */
 public final class JwtClaimNames {
-
-  /**
-   * User ID claim (standard JWT "sub" claim).
-   * Value: UUID string of the user.
-   */
-  public static final String USER_ID = "sub";
 
   /**
    * User email address.
