@@ -99,4 +99,18 @@ public class SecurityConfig {
       throws Exception {
     return config.getAuthenticationManager();
   }
+
+  @Bean
+  public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
+    org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
+    configuration.setAllowedOriginPatterns(java.util.List.of("*")); // Allows all origins
+    configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+    configuration.setAllowedHeaders(java.util.List.of("*"));
+    configuration.setExposedHeaders(java.util.List.of("Authorization"));
+    configuration.setAllowCredentials(true);
+    
+    org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", configuration);
+    return source;
+  }
 }
