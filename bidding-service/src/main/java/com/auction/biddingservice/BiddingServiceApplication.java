@@ -4,10 +4,15 @@ import static org.springframework.data.web.config.EnableSpringDataWebSupport.Pag
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.web.config.EnableSpringDataWebSupport;
 
 @SpringBootApplication
 @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)
+@ComponentScan(basePackages = {
+    "com.auction.biddingservice",
+    "com.auction.security"
+})
 public class BiddingServiceApplication {
 
   /**

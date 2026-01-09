@@ -3,6 +3,7 @@ package com.auction.biddingservice.controllers;
 import com.auction.biddingservice.dto.BidResponse;
 import com.auction.biddingservice.dto.PlaceBidRequest;
 import com.auction.biddingservice.services.BidService;
+import com.auction.security.AuthenticatedUser;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -14,11 +15,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -27,17 +28,16 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>Endpoints:
  * <ul>
- *   <li>POST /api/bids - Place a new bid</li>
- *   <li>GET /api/bids/items/{itemId} - Get paginated bid history for an item</li>
- *   <li>GET /api/bids/items/{itemId}/highest - Get current highest bid</li>
- *   <li>GET /api/bids/users/{bidderId} - Get paginated bid history for a user</li>
- *   <li>GET /api/bids/items/{itemId}/users/{bidderId} - Get user's bids on specific item</li>
- *   <li>GET /api/bids/items/{itemId}/count - Count total bids for an item</li>
- *   <li>GET /api/bids/users/{bidderId}/items - Get distinct items user has bid on</li>
+ *   <li>POST /api/bids - Place a new bid (authenticated)</li>
+ *   <li>GET /api/bids/items/{itemId} - Get paginated bid history for an item (public)</li>
+ *   <li>GET /api/bids/items/{itemId}/highest - Get current highest bid (public)</li>
+ *   <li>GET /api/bids/users/{bidderId} - Get paginated bid history for a user (authenticated)</li>
+ *   <li>GET /api/bids/items/{itemId}/users/{bidderId} - Get user's bids on specific item (authenticated)</li>
+ *   <li>GET /api/bids/items/{itemId}/count - Count total bids for an item (public)</li>
+ *   <li>GET /api/bids/users/{bidderId}/items - Get distinct items user has bid on (authenticated)</li>
  * </ul>
  *
- * <p>Authentication: Currently uses X-Auth-Id header for authenticated user ID. Will be replaced
- * with JWT token extraction via @AuthenticationPrincipal once User Service is integrated.
+ * <p>Authentication: JWT token extraction via @AuthenticationPrincipal AuthenticatedUser.
  *
  * <p>Error Handling: All exceptions are handled by {@link com.auction.biddingservice.exceptions.GlobalExceptionHandler}
  */
@@ -50,22 +50,21 @@ public class BidController {
   private final BidService bidService;
 
   /**
-   * Create a new bid for an auction item using the caller's authenticated ID.
+   * Create a new bid for an auction item using the authenticated user's ID.
    *
    * @param request the bid details containing the target item ID and bid amount
-   * @param authId  the caller's UUID string from the `X-Auth-Id` request header (used as the bidder ID)
-   * @return the created `BidResponse`, marked as the current highest bid when applicable
+   * @param user    the authenticated user from JWT
+   * @return the created BidResponse, marked as the current highest bid when applicable
    */
   @PostMapping
   public ResponseEntity<BidResponse> placeBid(
       @Valid @RequestBody PlaceBidRequest request,
-      @RequestHeader("X-Auth-Id") String authId) {
+      @AuthenticationPrincipal AuthenticatedUser user) {
 
-    UUID bidderId = UUID.fromString(authId);
     log.info("POST /api/bids - bidderId: {}, itemId: {}, amount: {}",
-        bidderId, request.itemId(), request.bidAmount());
+        user.getId(), request.itemId(), request.bidAmount());
 
-    BidResponse response = bidService.placeBid(request, bidderId);
+    BidResponse response = bidService.placeBid(request, user.getId());
 
     log.info("Bid placed successfully - bidId: {}, itemId: {}, bidderId: {}, amount: {}",
         response.id(), response.itemId(), response.bidderId(), response.bidAmount());
@@ -129,21 +128,21 @@ public class BidController {
    * <p>Default sorting is by `timestamp` descending (newest first) unless overridden via `pageable`.
    *
    * @param bidderId UUID of the bidder whose bids are being retrieved
+   * @param user     the authenticated user from JWT
    * @param pageable pagination and sorting parameters (default: page=0, size=20, sort=timestamp, direction=DESC)
    * @return a page of the user's bids
    */
   @GetMapping("/users/{bidderId}")
   public ResponseEntity<Page<BidResponse>> getUserBids(
       @PathVariable UUID bidderId,
-      @RequestHeader("X-Auth-Id") String authId,
+      @AuthenticationPrincipal AuthenticatedUser user,
       @PageableDefault(page = 0, size = 20, sort = "timestamp", direction = Sort.Direction.DESC)
       Pageable pageable) {
 
-    UUID authenticatedUserId = UUID.fromString(authId);
     log.debug("GET /api/bids/users/{} - authenticatedUser: {}, page: {}, size: {}",
-        bidderId, authenticatedUserId, pageable.getPageNumber(), pageable.getPageSize());
+        bidderId, user.getId(), pageable.getPageNumber(), pageable.getPageSize());
 
-    Page<BidResponse> response = bidService.getUserBids(bidderId, authenticatedUserId, pageable);
+    Page<BidResponse> response = bidService.getUserBids(bidderId, user.getId(), pageable);
 
     log.debug("Returning {} bids for bidderId: {}", response.getNumberOfElements(), bidderId);
 
@@ -159,6 +158,7 @@ public class BidController {
    *
    * @param itemId   the item ID to query
    * @param bidderId the user's UUID
+   * @param user     the authenticated user from JWT
    * @param pageable pagination parameters (page, size, sort)
    * @return page of user's bids on this item
    */
@@ -166,15 +166,14 @@ public class BidController {
   public ResponseEntity<Page<BidResponse>> getUserBidsForItem(
       @PathVariable Long itemId,
       @PathVariable UUID bidderId,
-      @RequestHeader("X-Auth-Id") String authId,
+      @AuthenticationPrincipal AuthenticatedUser user,
       @PageableDefault(page = 0, size = 20, sort = "timestamp", direction = Sort.Direction.DESC)
       Pageable pageable) {
 
-    UUID authenticatedUserId = UUID.fromString(authId);
     log.debug("GET /api/bids/items/{}/users/{} - authenticatedUser: {}, page: {}, size: {}",
-        itemId, bidderId, authenticatedUserId, pageable.getPageNumber(), pageable.getPageSize());
+        itemId, bidderId, user.getId(), pageable.getPageNumber(), pageable.getPageSize());
 
-    Page<BidResponse> response = bidService.getUserBidsForItem(itemId, bidderId, authenticatedUserId, pageable);
+    Page<BidResponse> response = bidService.getUserBidsForItem(itemId, bidderId, user.getId(), pageable);
 
     log.debug("Returning {} bids for itemId: {}, bidderId: {}",
         response.getNumberOfElements(), itemId, bidderId);
@@ -206,17 +205,17 @@ public class BidController {
    * Retrieve distinct item IDs the specified user has placed bids on.
    *
    * @param bidderId UUID of the bidder
+   * @param user     the authenticated user from JWT
    * @return list of item IDs the user has bid on; may be empty
    */
   @GetMapping("/users/{bidderId}/items")
   public ResponseEntity<List<Long>> getItemsUserHasBidOn(
       @PathVariable UUID bidderId,
-      @RequestHeader("X-Auth-Id") String authId) {
+      @AuthenticationPrincipal AuthenticatedUser user) {
 
-    UUID authenticatedUserId = UUID.fromString(authId);
-    log.debug("GET /api/bids/users/{}/items - authenticatedUser: {}", bidderId, authenticatedUserId);
+    log.debug("GET /api/bids/users/{}/items - authenticatedUser: {}", bidderId, user.getId());
 
-    List<Long> itemIds = bidService.getItemsUserHasBidOn(bidderId, authenticatedUserId);
+    List<Long> itemIds = bidService.getItemsUserHasBidOn(bidderId, user.getId());
 
     log.debug("Returning {} items for bidderId: {}", itemIds.size(), bidderId);
 
