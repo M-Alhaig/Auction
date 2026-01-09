@@ -50,34 +50,25 @@ public class StompWebSocketBroadcastService implements WebSocketBroadcastService
   /**
    * Send a message to a specific user's alert queue.
    *
-   * <p>Internally routes to /user/{userId}/queue/alerts using Spring's
-   * user destination resolution.
+   * <p>Routes to /user/{userId}/queue/alerts using Spring's user destination resolution.
+   * Requires the user to be connected with JWT authentication (via ?token=jwt query param).
    *
-   * <p><strong>TODO: Requires User Service Authentication</strong>
-   * <br>Currently, {@code convertAndSendToUser} requires an authenticated Principal
-   * to map userId to a WebSocket session. Without authentication:
-   * <ul>
-   *   <li>Messages are sent but won't be delivered (no session mapping)</li>
-   *   <li>Client subscribes to /user/queue/alerts but userId isn't linked</li>
-   * </ul>
-   *
-   * <p><strong>After User Service is implemented:</strong>
+   * <p><strong>How it works:</strong>
    * <ol>
-   *   <li>Add WebSocket handshake interceptor to extract JWT from connection</li>
-   *   <li>Set Principal on WebSocket session during handshake</li>
-   *   <li>Spring will automatically route /user/queue/alerts to correct session</li>
+   *   <li>Client connects: ws://host/ws?token=JWT</li>
+   *   <li>JwtHandshakeInterceptor validates JWT, stores userId in session</li>
+   *   <li>WebSocketAuthChannelInterceptor creates Principal with getName()=userId</li>
+   *   <li>Client subscribes to /user/queue/alerts</li>
+   *   <li>This method calls convertAndSendToUser(userId, ...) → Spring routes to correct session</li>
    * </ol>
    *
-   * @param userId  the user identifier (typically UUID as string)
+   * @param userId  the user identifier (UUID as string, must match Principal.getName())
    * @param payload the message payload (automatically serialized to JSON)
-   * @see com.auction.notificationservice.config.WebSocketConfiguration
    */
   @Override
   public void sendToUser(String userId, Object payload) {
-    // TODO: Private notifications require WebSocket authentication (User Service dependency)
-    // Currently logs success but message won't be delivered without authenticated session
     log.debug("Sending to user - userId: {}, queue: {}", userId, USER_ALERTS_QUEUE);
     messagingTemplate.convertAndSendToUser(userId, USER_ALERTS_QUEUE, payload);
-    log.info("Message sent to user - userId: {}", userId);
+    log.info("Private notification sent - userId: {}", userId);
   }
 }

@@ -10,6 +10,123 @@
       "name": "0. Setup - Create Auction Flow",
       "item": [
         {
+          "name": "Log in 1",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "id": "b4c665a7-d053-459e-90ef-421de6de7853",
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "id": "b9db53c6-ef86-4616-b43f-203cc28fa654",
+                "exec": [
+                  "const jsonData = pm.response.json();\r",
+                  "pm.collectionVariables.set(\"jwtToken1\", jsonData.accessToken);\r",
+                  "console.log(pm.collectionVariables.get(\"jwtToken1\"))"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "id": "caaf4a3f-3acf-49e2-98f9-664bfe4ed78a",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"email\": \"test1@example.com\",\r\n    \"password\": \"12345678\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:8081/api/auth/login",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Log in 2",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "id": "b4c665a7-d053-459e-90ef-421de6de7853",
+                "exec": [
+                  ""
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "id": "b9db53c6-ef86-4616-b43f-203cc28fa654",
+                "exec": [
+                  "const jsonData = pm.response.json();\r",
+                  "pm.collectionVariables.set(\"jwtToken2\", jsonData.accessToken);"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "id": "9b8c53b4-cbbd-498d-935c-6cc8e4da5144",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"email\": \"test2@example.com\",\r\n    \"password\": \"12345678\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:8081/api/auth/login",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Health Check - All Services",
           "event": [
             {
@@ -1045,11 +1162,21 @@
       "description": "End the auction and verify cleanup."
     }
   ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwtToken1}}",
+        "type": "string"
+      }
+    ]
+  },
   "event": [
     {
       "listen": "prerequest",
       "script": {
-        "id": "a696a588-5bdb-40e4-a7c6-690305fa4684",
+        "id": "29f4fbaf-9353-4970-a5a5-9bef8432d1b3",
         "type": "text/javascript",
         "requests": {},
         "exec": [
@@ -1061,7 +1188,7 @@
     {
       "listen": "test",
       "script": {
-        "id": "b4ac973f-1ff8-468a-a2c6-25bd2686f35d",
+        "id": "383e7072-599f-4543-956e-ce780bf2e4a7",
         "type": "text/javascript",
         "requests": {},
         "exec": [
@@ -1074,70 +1201,80 @@
   ],
   "variable": [
     {
-      "id": "e4991311-b6ff-42f7-96b0-af57068ae772",
+      "id": "5002c9d5-b614-4d3e-a060-3a42b231f86b",
       "key": "baseUrl",
       "value": "http://localhost:8084",
       "description": "Notification Service URL"
     },
     {
-      "id": "b3bceb0f-0fce-46a3-b0cb-da167c75fcd6",
+      "id": "1def638e-3c8b-44c9-99eb-3af2b72a35dc",
       "key": "itemServiceUrl",
       "value": "http://localhost:8082",
       "description": "Item Service URL"
     },
     {
-      "id": "5f22dace-cfb5-4363-a819-0f3202638db0",
+      "id": "a34ea9d2-7ef2-4a53-91a1-dfa582e510d2",
       "key": "biddingServiceUrl",
       "value": "http://localhost:8083",
       "description": "Bidding Service URL"
     },
     {
-      "id": "22daa92e-1bdc-4eba-907b-97de8776da20",
+      "id": "c8c46412-95a5-4509-b1ab-bc04ac4d8213",
       "key": "sellerId",
       "value": "550e8400-e29b-41d4-a716-446655440001",
       "description": "Seller user UUID"
     },
     {
-      "id": "8632cac4-95bf-4f15-a2b0-eedf84bf644e",
+      "id": "1e6296b7-71c1-43bd-9b8e-21ee2bd84efb",
       "key": "bidder1Id",
       "value": "550e8400-e29b-41d4-a716-446655440002",
       "description": "Bidder 1 UUID"
     },
     {
-      "id": "bb5824b6-ebdc-4820-b48c-2673dc346660",
+      "id": "8bf7ada0-6d69-49ad-b9e0-95bd652c979d",
       "key": "bidder2Id",
       "value": "550e8400-e29b-41d4-a716-446655440003",
       "description": "Bidder 2 UUID"
     },
     {
-      "id": "2ccde0eb-668d-4325-be10-180e31d7efc6",
+      "id": "67b01921-ee05-4dc9-a3a6-1252a32d43b2",
       "key": "categoryId",
       "value": "1",
       "description": "Category ID (set by test)"
     },
     {
-      "id": "c386dc3a-ad17-464b-b095-ebf85f2eaf6c",
+      "id": "f0ec2e75-9ae3-481f-a756-c51d0122c1a0",
       "key": "itemId",
       "value": "1",
       "description": "Auction item ID (set by test)"
     },
     {
-      "id": "13d95d1b-34ef-4c65-91d4-148d8e31332e",
+      "id": "69155fab-42e7-45c0-a711-73a25195ec4b",
       "key": "notificationId",
       "value": "1",
       "description": "Notification ID for mark-as-read tests"
     },
     {
-      "id": "c1ed5401-b764-458b-aa9c-3c80af3ec842",
+      "id": "63026f83-3a28-4606-82b8-aa1ed56fa9db",
       "key": "auctionStartTime",
       "value": "",
       "description": "Dynamic auction start time"
     },
     {
-      "id": "bbeaec13-617f-4ec4-b655-ebf37e95525b",
+      "id": "ff531369-ea2d-4ceb-b1ea-ba85214cc212",
       "key": "auctionEndTime",
       "value": "",
       "description": "Dynamic auction end time"
+    },
+    {
+      "id": "23222548-3320-48ac-8294-9e5fe59ca45c",
+      "key": "jwtToken1",
+      "value": ""
+    },
+    {
+      "id": "f1bd4dec-d80a-485e-b7ff-824ba01cf4e6",
+      "key": "jwtToken2",
+      "value": ""
     }
   ]
 }

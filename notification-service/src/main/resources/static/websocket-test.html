@@ -430,20 +430,17 @@
             }
 
             const wsUrl = document.getElementById('wsUrl').value;
-            log(`Connecting to ${wsUrl}...`);
+            // Pass JWT as query parameter (SockJS doesn't support custom HTTP headers)
+            const wsUrlWithToken = `${wsUrl}?token=${encodeURIComponent(authToken)}`;
+            log(`Connecting to ${wsUrl} with JWT authentication...`);
 
-            const socket = new SockJS(wsUrl);
+            const socket = new SockJS(wsUrlWithToken);
             stompClient = Stomp.over(socket);
 
             // Disable debug logging in console
             stompClient.debug = null;
 
-            // Pass JWT token in STOMP connect headers
-            const headers = {
-                'Authorization': `Bearer ${authToken}`
-            };
-
-            stompClient.connect(headers, function(frame) {
+            stompClient.connect({}, function(frame) {
                 log('Connected to WebSocket!', 'success');
                 log(`Session: ${frame.headers['user-name'] || currentUser?.email || 'authenticated'}`);
                 updateConnectionStatus(true);

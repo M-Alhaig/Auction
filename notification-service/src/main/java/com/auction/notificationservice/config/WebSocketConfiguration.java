@@ -1,10 +1,14 @@
 package com.auction.notificationservice.config;
 
+import com.auction.notificationservice.websocket.JwtHandshakeInterceptor;
+import com.auction.notificationservice.websocket.WebSocketAuthChannelInterceptor;
+import com.auction.security.JwtTokenValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;
 import org.springframework.messaging.converter.MessageConverter;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
@@ -49,9 +53,11 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfiguration implements WebSocketMessageBrokerConfigurer {
 
   private final ObjectMapper objectMapper;
+  private final JwtTokenValidator jwtTokenValidator;
 
-  public WebSocketConfiguration(ObjectMapper objectMapper) {
+  public WebSocketConfiguration(ObjectMapper objectMapper, JwtTokenValidator jwtTokenValidator) {
     this.objectMapper = objectMapper;
+    this.jwtTokenValidator = jwtTokenValidator;
   }
 
   /**
@@ -128,7 +134,19 @@ public class WebSocketConfiguration implements WebSocketMessageBrokerConfigurer 
   @Override
   public void registerStompEndpoints(StompEndpointRegistry registry) {
     registry.addEndpoint("/ws")
+        .addInterceptors(new JwtHandshakeInterceptor(jwtTokenValidator))  // Extract JWT during handshake
         .setAllowedOriginPatterns("*")  // TODO: Configure specific origins for production
         .withSockJS();  // Enable SockJS fallback for older browsers
+  }
+
+  /**
+   * Registers the channel interceptor for STOMP CONNECT authentication.
+   *
+   * <p>The interceptor reads JWT from session attributes (set by HandshakeInterceptor)
+   * and creates a Principal for the session, enabling /user/queue/* routing.
+   */
+  @Override
+  public void configureClientInboundChannel(ChannelRegistration registration) {
+    registration.interceptors(new WebSocketAuthChannelInterceptor(jwtTokenValidator));
   }
 }
