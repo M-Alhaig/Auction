@@ -2,6 +2,7 @@ package com.auction.itemservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.web.config.EnableSpringDataWebSupport;
 
 import static org.springframework.data.web.config.EnableSpringDataWebSupport.PageSerializationMode.VIA_DTO;
@@ -15,6 +16,10 @@ import static org.springframework.data.web.config.EnableSpringDataWebSupport.Pag
  */
 @SpringBootApplication
 @EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)
+@ComponentScan(basePackages = {
+    "com.auction.itemservice",
+    "com.auction.security"
+})
 public class ItemServiceApplication {
 
   /**
