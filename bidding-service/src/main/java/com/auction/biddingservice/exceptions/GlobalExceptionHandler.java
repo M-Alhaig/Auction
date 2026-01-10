@@ -4,6 +4,7 @@ import com.auction.security.exception.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -291,6 +292,18 @@ public class GlobalExceptionHandler {
 			ex.getMessage(), request.getRequestURI());
 
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+	}
+
+	// TODO: Move to CommonExceptionHandler in common-security module
+	@ExceptionHandler(AccessDeniedException.class)
+	public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex,
+		HttpServletRequest request) {
+		log.warn("Access denied - path: {}, message: {}", request.getRequestURI(), ex.getMessage());
+
+		ErrorResponse error = new ErrorResponse(HttpStatus.FORBIDDEN.value(), "Forbidden",
+			ex.getMessage(), request.getRequestURI());
+
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
 	}
 
   /**

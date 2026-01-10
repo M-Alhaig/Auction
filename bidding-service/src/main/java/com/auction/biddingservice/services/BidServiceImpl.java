@@ -12,6 +12,7 @@ import com.auction.biddingservice.exceptions.AuctionNotActiveException;
 import com.auction.biddingservice.exceptions.BidLockException;
 import com.auction.biddingservice.exceptions.InvalidBidException;
 import com.auction.biddingservice.models.Bid;
+import org.springframework.security.access.AccessDeniedException;
 import com.auction.biddingservice.models.ItemStatus;
 import com.auction.biddingservice.repositories.BidRepository;
 import java.math.BigDecimal;
@@ -202,7 +203,7 @@ public class BidServiceImpl implements BidService {
     // Note: This is a simple history view, not "current standing" dashboard
 
     if (!bidderId.equals(authenticatedUserId)) {
-      //	  TODO: throw a security exception
+      throw new AccessDeniedException("Cannot access another user's bid history");
     }
 
     log.debug("getUserBids - bidderId: {}", bidderId);
@@ -238,7 +239,7 @@ public class BidServiceImpl implements BidService {
     // 6. Return mapped page
 
     if (!bidderId.equals(authenticatedUserId)) {
-      //	  TODO: throw a security exception
+      throw new AccessDeniedException("Cannot access another user's bid history");
     }
 
     log.debug("getUserBidsForItem - itemId: {}, bidderId: {}", itemId, bidderId);
@@ -284,7 +285,7 @@ public class BidServiceImpl implements BidService {
     // 3. Return list
 
     if (!bidderId.equals(authenticatedUserId)) {
-      //	  TODO: throw a security exception
+      throw new AccessDeniedException("Cannot access another user's bid history");
     }
 
     log.debug("getItemsUserHasBidOn - bidderId: {}", bidderId);
