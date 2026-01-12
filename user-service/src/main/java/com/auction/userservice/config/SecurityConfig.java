@@ -6,8 +6,6 @@ import com.auction.security.exception.SecurityExceptionHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
-import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -43,7 +41,9 @@ public class SecurityConfig {
       "/api/auth/verify",
       "/api/auth/oauth2/**",
       "/actuator/health",
-      "/actuator/info"
+      "/actuator/info",
+      "/oauth2-test.html",
+      "/favicon.ico"
   };
 
   @Bean
@@ -77,17 +77,7 @@ public class SecurityConfig {
         .build();
   }
 
-  /**
-   * Role hierarchy: ADMIN inherits SELLER, SELLER inherits BIDDER.
-   * So @PreAuthorize("hasRole('BIDDER')") passes for ADMIN and SELLER too.
-   */
-  @Bean
-  public RoleHierarchy roleHierarchy() {
-    return RoleHierarchyImpl.withDefaultRolePrefix()
-        .role("ADMIN").implies("SELLER")
-        .role("SELLER").implies("BIDDER")
-        .build();
-  }
+
 
   @Bean
   public PasswordEncoder passwordEncoder() {
