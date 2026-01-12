@@ -127,6 +127,21 @@ public class GlobalExceptionHandler {
         ));
   }
 
+  @ExceptionHandler(OAuth2AuthenticationException.class)
+  public ResponseEntity<ErrorResponse> handleOAuth2Authentication(
+      OAuth2AuthenticationException ex, HttpServletRequest request) {
+
+    log.warn("OAuth2 authentication failed: {}", ex.getMessage());
+
+    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+        .body(new ErrorResponse(
+            HttpStatus.UNAUTHORIZED.value(),
+            "OAuth2 Authentication Failed",
+            ex.getMessage(),
+            request.getRequestURI()
+        ));
+  }
+
   // ============== 403 Forbidden ==============
 
   @ExceptionHandler(AccessDeniedException.class)
@@ -209,6 +224,21 @@ public class GlobalExceptionHandler {
         .body(new ErrorResponse(
             HttpStatus.CONFLICT.value(),
             "Conflict",
+            ex.getMessage(),
+            request.getRequestURI()
+        ));
+  }
+
+  @ExceptionHandler(OAuth2AccountLinkedException.class)
+  public ResponseEntity<ErrorResponse> handleOAuth2AccountLinked(
+      OAuth2AccountLinkedException ex, HttpServletRequest request) {
+
+    log.warn("OAuth2 account already linked: {}", ex.getMessage());
+
+    return ResponseEntity.status(HttpStatus.CONFLICT)
+        .body(new ErrorResponse(
+            HttpStatus.CONFLICT.value(),
+            "Account Already Linked",
             ex.getMessage(),
             request.getRequestURI()
         ));
