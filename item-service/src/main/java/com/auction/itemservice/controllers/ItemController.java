@@ -5,6 +5,7 @@ import com.auction.itemservice.dto.ItemResponse;
 import com.auction.itemservice.dto.UpdateItemRequest;
 import com.auction.itemservice.models.ItemStatus;
 import com.auction.itemservice.services.ItemService;
+import com.auction.security.AuthenticatedUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,11 +14,17 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+// TODO(security): Add @PreAuthorize when API Gateway authentication is integrated:
+//   - createItem: @PreAuthorize("hasRole('SELLER') and authentication.principal.emailVerified")
+//   - updateItem: @PreAuthorize("hasRole('SELLER') and authentication.principal.emailVerified")
+//   - deleteItem: @PreAuthorize("hasRole('SELLER') and authentication.principal.emailVerified")
+//   - Public endpoints (get*) remain unauthenticated
 @Validated
 @Slf4j
 @RestController
@@ -28,20 +35,20 @@ public class ItemController {
   private final ItemService itemService;
 
   /**
-   * Create a new auction item for the specified seller.
+   * Create a new auction item for the authenticated seller.
    *
-   * @param request  the validated item creation request
-   * @param sellerId the authenticated seller's UUID (currently supplied via `X-Auth-Id` header)
+   * @param request the validated item creation request
+   * @param user    the authenticated user from JWT
    * @return the created ItemResponse
    */
   @PostMapping
   public ResponseEntity<ItemResponse> createItem(
       @Valid @RequestBody CreateItemRequest request,
-      @RequestHeader("X-Auth-Id") UUID sellerId
+      @AuthenticationPrincipal AuthenticatedUser user
   ) {
-    log.info("POST /api/items - Creating item for seller: {}", sellerId);
+    log.info("POST /api/items - Creating item for seller: {}", user.getId());
 
-    ItemResponse response = itemService.createItem(request, sellerId);
+    ItemResponse response = itemService.createItem(request, user.getId());
 
     log.info("POST /api/items - Item created: {}", response.id());
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -52,18 +59,18 @@ public class ItemController {
    *
    * @param id      the item identifier
    * @param request the partial update request containing fields to change
-   * @param userId  the UUID of the authenticated user performing the update
+   * @param user    the authenticated user from JWT
    * @return the updated ItemResponse
    */
   @PatchMapping("/{id}")
   public ResponseEntity<ItemResponse> updateItem(
       @PathVariable Long id,
       @Valid @RequestBody UpdateItemRequest request,
-      @RequestHeader("X-Auth-Id") UUID userId
+      @AuthenticationPrincipal AuthenticatedUser user
   ) {
-    log.info("PATCH /api/items/{} - Updating by user: {}", id, userId);
+    log.info("PATCH /api/items/{} - Updating by user: {}", id, user.getId());
 
-    ItemResponse response = itemService.updateItem(id, request, userId);
+    ItemResponse response = itemService.updateItem(id, request, user.getId());
     log.info("PATCH /api/items/{} - Item updated successfully", id);
 
     return ResponseEntity.ok(response);
@@ -72,17 +79,17 @@ public class ItemController {
   /**
    * Delete the specified auction item if it is in PENDING status and the requesting user is authorized.
    *
-   * @param id the item identifier
-   * @param userId the authenticated user's UUID
+   * @param id   the item identifier
+   * @param user the authenticated user from JWT
    * @return HTTP 204 No Content when the item is successfully deleted
    */
   @DeleteMapping("/{id}")
   public ResponseEntity<Void> deleteItem(
       @PathVariable Long id,
-      @RequestHeader("X-Auth-Id") UUID userId
+      @AuthenticationPrincipal AuthenticatedUser user
   ) {
-    log.info("DELETE /api/items/{} - Deleting by user: {}", id, userId);
-    itemService.deleteItem(id, userId);
+    log.info("DELETE /api/items/{} - Deleting by user: {}", id, user.getId());
+    itemService.deleteItem(id, user.getId());
     log.info("DELETE /api/items/{} - Item deleted successfully", id);
     return ResponseEntity.noContent().build();
   }

@@ -28,6 +28,9 @@ import java.util.List;
  *   <li>POST /api/categories - Create new category (idempotent via unique constraint)</li>
  * </ul>
  */
+// TODO(security): Add @PreAuthorize when API Gateway authentication is integrated:
+//   - createCategory: @PreAuthorize("hasRole('ADMIN')") - only admins create categories
+//   - Public endpoints (getAllCategories, getCategoryById) remain unauthenticated
 @Validated
 @Slf4j
 @RestController

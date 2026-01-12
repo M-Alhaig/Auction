@@ -1,5 +1,6 @@
 package com.auction.itemservice.exceptions;
 
+import com.auction.security.exception.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;

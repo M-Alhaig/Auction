@@ -3,13 +3,13 @@ package com.auction.itemservice.controllers;
 import com.auction.itemservice.dto.ItemResponse;
 import com.auction.itemservice.services.ItemLifecycleService;
 import com.auction.itemservice.services.ItemService;
+import com.auction.security.AuthenticatedUser;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.UUID;
 
 /**
  * Controller for manual auction lifecycle management endpoints.
@@ -57,8 +57,8 @@ public class ManualLifecycleController {
    * <p><strong>Availability:</strong> This endpoint is disabled in production environments
    * via class-level {@code @Profile("!production")} - the entire controller bean is not created.
    *
-   * @param id the item identifier
-   * @param userId the authenticated seller's UUID
+   * @param id   the item identifier
+   * @param user the authenticated user from JWT
    * @return the updated ItemResponse with ACTIVE status
    * @throws com.auction.itemservice.exceptions.ItemNotFoundException if item not found
    * @throws IllegalStateException if item is not in PENDING status
@@ -67,9 +67,9 @@ public class ManualLifecycleController {
   @PatchMapping("/{id}/start")
   public ResponseEntity<ItemResponse> startAuction(
       @PathVariable Long id,
-      @RequestHeader("X-Auth-Id") UUID userId
+      @AuthenticationPrincipal AuthenticatedUser user
   ) {
-    log.info("PATCH /api/items/{}/start - Starting auction by user: {}", id, userId);
+    log.info("PATCH /api/items/{}/start - Starting auction by user: {}", id, user.getId());
 
     itemLifecycleService.startAuction(id);
     ItemResponse response = itemService.getItemById(id);
@@ -94,8 +94,8 @@ public class ManualLifecycleController {
    * <p><strong>Availability:</strong> This endpoint is disabled in production environments
    * via class-level {@code @Profile("!production")} - the entire controller bean is not created.
    *
-   * @param id the item identifier
-   * @param userId the authenticated seller's UUID
+   * @param id   the item identifier
+   * @param user the authenticated user from JWT
    * @return the updated ItemResponse with ENDED status and final price
    * @throws com.auction.itemservice.exceptions.ItemNotFoundException if item not found
    * @throws IllegalStateException if item is not in ACTIVE status
@@ -104,9 +104,9 @@ public class ManualLifecycleController {
   @PatchMapping("/{id}/end")
   public ResponseEntity<ItemResponse> endAuction(
       @PathVariable Long id,
-      @RequestHeader("X-Auth-Id") UUID userId
+      @AuthenticationPrincipal AuthenticatedUser user
   ) {
-    log.info("PATCH /api/items/{}/end - Ending auction by user: {}", id, userId);
+    log.info("PATCH /api/items/{}/end - Ending auction by user: {}", id, user.getId());
 
     itemLifecycleService.endAuction(id);
     ItemResponse response = itemService.getItemById(id);

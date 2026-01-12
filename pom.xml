@@ -19,6 +19,7 @@
 
     <modules>
         <module>common-events</module>
+        <module>common-security</module>
         <module>api-gateway</module>
         <module>user-service</module>
         <module>item-service</module>

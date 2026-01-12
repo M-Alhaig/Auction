@@ -1,0 +1,185 @@
+{
+  "info": {
+    "_postman_id": "cbb75d65-8a20-4448-a31d-b81f513a029a",
+    "name": "User Service API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create User",
+      "id": "2b5f481c-bb57-47cb-95a7-c1e1e27dde3f",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"email\": \"test2@example.com\",\r\n    \"password\": \"12345678\",\r\n    \"displayName\" : \"test2\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8081/api/auth/register",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "auth",
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Login",
+      "id": "79e91cc1-d8ae-42da-b653-da7005ca030e",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"email\": \"test2@example.com\",\r\n    \"password\": \"12345678\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "http://localhost:8081/api/auth/login",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Login OAuth",
+      "id": "c9a56f49-9432-4d4f-acff-3269f73046ea",
+      "request": {
+        "auth": {
+          "type": "oauth2",
+          "oauth2": [
+            {
+              "key": "clientId",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "key": "useBrowser",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "key": "grant_type",
+              "value": "implicit",
+              "type": "string"
+            },
+            {
+              "key": "code_verifier",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "key": "scope",
+              "value": "email openid phone",
+              "type": "string"
+            },
+            {
+              "key": "authUrl",
+              "value": "https://me-central-1lpcde3wx6.auth.me-central-1.amazoncognito.com/login",
+              "type": "string"
+            },
+            {
+              "key": "clientSecret",
+              "value": "m4i8jp3no882lrr3h4b19dk8vgd75j189ulstvr7ob0g2rrqvou",
+              "type": "string"
+            },
+            {
+              "key": "tokenName",
+              "value": "test",
+              "type": "string"
+            },
+            {
+              "key": "redirect_uri",
+              "value": "http://localhost:3000/login",
+              "type": "string"
+            },
+            {
+              "key": "headerPrefix",
+              "value": "Bearer",
+              "type": "string"
+            },
+            {
+              "key": "addTokenTo",
+              "value": "header",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/auth/login",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Me",
+      "id": "6bd2c80d-9862-433e-ab3d-c53d4e5276e4",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{jwtToken2}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8081/api/users/me",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8081",
+          "path": [
+            "api",
+            "users",
+            "me"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
