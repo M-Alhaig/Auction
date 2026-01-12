@@ -41,6 +41,12 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>Error Handling: All exceptions are handled by {@link com.auction.biddingservice.exceptions.GlobalExceptionHandler}
  */
+// TODO(security): Add @PreAuthorize when API Gateway authentication is integrated:
+//   - placeBid: @PreAuthorize("isAuthenticated() and authentication.principal.emailVerified")
+//   - getUserBids: @PreAuthorize("isAuthenticated()")
+//   - getUserBidsForItem: @PreAuthorize("isAuthenticated()")
+//   - getItemsUserHasBidOn: @PreAuthorize("isAuthenticated()")
+//   - Public endpoints (getBidHistory, getHighestBid, countBids) remain unauthenticated
 @Slf4j
 @RestController
 @RequestMapping("/api/bids")

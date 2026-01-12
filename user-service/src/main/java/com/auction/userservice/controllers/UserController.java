@@ -1,8 +1,8 @@
 package com.auction.userservice.controllers;
 
+import com.auction.security.AuthenticatedUser;
 import com.auction.userservice.dto.UpdateProfileRequest;
 import com.auction.userservice.dto.UserResponse;
-import com.auction.userservice.security.UserPrincipal;
 import com.auction.userservice.services.UserService;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -30,7 +30,7 @@ public class UserController {
   @GetMapping("/me")
   @PreAuthorize("isAuthenticated()")
   public ResponseEntity<UserResponse> getCurrentUser(
-      @AuthenticationPrincipal UserPrincipal principal) {
+      @AuthenticationPrincipal AuthenticatedUser principal) {
     UserResponse response = userService.getUserById(principal.getId());
     return ResponseEntity.ok(response);
   }
@@ -41,7 +41,7 @@ public class UserController {
   @PatchMapping("/me")
   @PreAuthorize("isAuthenticated()")
   public ResponseEntity<UserResponse> updateProfile(
-      @AuthenticationPrincipal UserPrincipal principal,
+      @AuthenticationPrincipal AuthenticatedUser principal,
       @Valid @RequestBody UpdateProfileRequest request) {
     UserResponse response = userService.updateProfile(principal.getId(), request);
     return ResponseEntity.ok(response);

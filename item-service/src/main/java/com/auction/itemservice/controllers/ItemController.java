@@ -20,6 +20,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
+// TODO(security): Add @PreAuthorize when API Gateway authentication is integrated:
+//   - createItem: @PreAuthorize("hasRole('SELLER') and authentication.principal.emailVerified")
+//   - updateItem: @PreAuthorize("hasRole('SELLER') and authentication.principal.emailVerified")
+//   - deleteItem: @PreAuthorize("hasRole('SELLER') and authentication.principal.emailVerified")
+//   - Public endpoints (get*) remain unauthenticated
 @Validated
 @Slf4j
 @RestController

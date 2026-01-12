@@ -36,6 +36,8 @@ import org.springframework.web.bind.annotation.RestController;
  * <p><strong>Authentication:</strong> JWT authentication via Spring Security.
  * User info extracted from token via @AuthenticationPrincipal.
  */
+// TODO(security): Add @PreAuthorize("isAuthenticated()") to all endpoints when API Gateway is integrated
+//   All notification endpoints require authentication (user-specific data)
 @Slf4j
 @RestController
 @RequestMapping("/api/notifications")
